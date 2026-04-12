@@ -1,0 +1,7 @@
+{
+  "name": "Ficha de RPG Digital",
+  "description": "Aplicação web para criar e gerenciar fichas de personagens de RPG com suporte a múltiplos personagens, habilidades, trilhas roxas, rituais, magias, defesa e inventário.",
+  "version": "1.0.0",
+  "public": true,
+  "buildDir": "dist/public"
+}
