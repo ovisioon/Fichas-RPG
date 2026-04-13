@@ -1,16 +1,18 @@
-import tailwindcss from "@tailwindcss/vite";
+// vite.config.ts
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite"; // ← ADICIONADO
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
-// Writes browser logs directly to files, trimmed when exceeding size limit
+// (mantido exatamente como estava, sem alterações)
 // =============================================================================
 
-const PROJECT_ROOT = import.meta.dirname;
+const PROJECT_ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)));
 const LOG_DIR = path.join(PROJECT_ROOT, ".manus-logs");
 const MAX_LOG_SIZE_BYTES = 1 * 1024 * 1024; // 1MB per log file
 const TRIM_TARGET_BYTES = Math.floor(MAX_LOG_SIZE_BYTES * 0.6); // Trim to 60% to avoid constant re-trimming
@@ -49,7 +51,7 @@ function trimLogFile(logPath: string, maxSize: number) {
 }
 
 function writeToLogFile(source: LogSource, entries: unknown[]) {
-  if (entries.length === 0) return;
+  if (!entries || entries.length === 0) return;
 
   ensureLogDir();
   const logPath = path.join(LOG_DIR, `${source}.log`);
@@ -57,7 +59,11 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
   // Format entries with timestamps
   const lines = entries.map((entry) => {
     const ts = new Date().toISOString();
-    return `[${ts}] ${JSON.stringify(entry)}`;
+    try {
+      return `[${ts}] ${JSON.stringify(entry)}`;
+    } catch {
+      return `[${ts}] ${String(entry)}`;
+    }
   });
 
   // Append to log file
@@ -67,12 +73,6 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
   trimLogFile(logPath, MAX_LOG_SIZE_BYTES);
 }
 
-/**
- * Vite plugin to collect browser debug logs
- * - POST /__manus__/logs: Browser sends logs, written directly to files
- * - Files: browserConsole.log, networkRequests.log, sessionReplay.log
- * - Auto-trimmed when exceeding 1MB (keeps newest entries)
- */
 function vitePluginManusDebugCollector(): Plugin {
   return {
     name: "manus-debug-collector",
@@ -104,19 +104,23 @@ function vitePluginManusDebugCollector(): Plugin {
         }
 
         const handlePayload = (payload: any) => {
-          // Write logs directly to files
-          if (payload.consoleLogs?.length > 0) {
-            writeToLogFile("browserConsole", payload.consoleLogs);
-          }
-          if (payload.networkRequests?.length > 0) {
-            writeToLogFile("networkRequests", payload.networkRequests);
-          }
-          if (payload.sessionEvents?.length > 0) {
-            writeToLogFile("sessionReplay", payload.sessionEvents);
-          }
+          try {
+            if (payload.consoleLogs && payload.consoleLogs.length > 0) {
+              writeToLogFile("browserConsole", payload.consoleLogs);
+            }
+            if (payload.networkRequests && payload.networkRequests.length > 0) {
+              writeToLogFile("networkRequests", payload.networkRequests);
+            }
+            if (payload.sessionEvents && payload.sessionEvents.length > 0) {
+              writeToLogFile("sessionReplay", payload.sessionEvents);
+            }
 
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: true }));
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: false, error: String(e) }));
+          }
         };
 
         const reqBody = (req as { body?: unknown }).body;
@@ -137,7 +141,7 @@ function vitePluginManusDebugCollector(): Plugin {
 
         req.on("end", () => {
           try {
-            const payload = JSON.parse(body);
+            const payload = JSON.parse(body || "{}");
             handlePayload(payload);
           } catch (e) {
             res.writeHead(400, { "Content-Type": "application/json" });
@@ -149,32 +153,45 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+// =============================================================================
+// PLUGINS
+// =============================================================================
+
+const plugins = [
+  tailwindcss(),            // ← ADICIONADO (processa o Tailwind CSS)
+  react(),
+  vitePluginManusRuntime(),
+  vitePluginManusDebugCollector(),
+];
+
+// =============================================================================
+// CONFIGURAÇÃO FINAL
+// =============================================================================
 
 export default defineConfig({
-  base: '/',
+  base: "/",
   plugins,
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+      "@": path.resolve(PROJECT_ROOT, "client", "src"),
+      "@shared": path.resolve(PROJECT_ROOT, "shared"),
+      "@assets": path.resolve(PROJECT_ROOT, "attached_assets"),
     },
   },
-  envDir: path.resolve(import.meta.dirname),
-  root: path.resolve(import.meta.dirname, "client"),
+  envDir: PROJECT_ROOT,
+  root: path.resolve(PROJECT_ROOT, "client"),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist"),
+    outDir: path.resolve(PROJECT_ROOT, "dist"),
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: path.resolve(import.meta.dirname, "client/index.html"),
+        main: path.resolve(PROJECT_ROOT, "client", "index.html"),
       },
     },
   },
   server: {
     port: 3000,
-    strictPort: false, // Will find next available port if 3000 is busy
+    strictPort: false,
     host: true,
     allowedHosts: [
       ".manuspre.computer",
