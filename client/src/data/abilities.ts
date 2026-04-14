@@ -1,807 +1,903 @@
-// Fase 3 — Habilidades do RPG com Trilhas em Níveis
-
 export interface Ability {
   id: string;
   name: string;
+  classId: "Combatente" | "Especialista" | "Ocultista";
   description: string;
-  cost?: string;
   prerequisite?: string;
+  type?: "ativa" | "passiva";
+  cost?: string;
 }
 
-export interface PathLevel {
-  level: number;
-  abilities: Ability[];
-}
-
-export interface Path {
-  name: string;
-  levels: PathLevel[];
-}
-
-export interface ClassAbilities {
-  name: string;
-  generalAbilities: Ability[];
-  paths: Path[];
-}
-
-export const ABILITIES: Record<string, ClassAbilities> = {
-  combatente: {
-    name: "Combatente",
-    generalAbilities: [
-      {
-        id: "c1",
-        name: "FÚRIA INCONTIDA",
-        description:
-          "Você pode gastar 3 PE para entrar em um estado de fúria por 3 rodadas. Durante a fúria, você ganha +2 em rolagens de dano corpo a corpo e resistência a dano físico 2, mas não pode conjurar rituais",
-        cost: "3 PE",
-      },
-      {
-        id: "c2",
-        name: "INVESTIDA DESTRUTIVA",
-        description:
-          "Quando você se move pelo menos 6 metros em linha reta antes de atacar, pode gastar 2 PE para adicionar +1d8 de dano ao seu ataque.",
-        cost: "2 PE",
-      },
-      {
-        id: "c3",
-        name: "VITALIDADE MACABRA",
-        description:
-          "Você pode conjurar um dos seus rituais de Maldição pagando PV iguais aos PE que você pegaria normalmente pelo ritual, o Compactuado também afeta esse custo de PV.",
-      },
-      {
-        id: "c4",
-        name: "GOLPE FOCADO",
-        description:
-          "Quando faz um ataque, você pode gastar 2 PE para receber +5 no teste de ataque ou na rolagem de dano. Conforme avança de NEX, você pode gastar +1 PE para receber mais bônus de +5.",
-        cost: "2+ PE",
-      },
-      {
-        id: "c5",
-        name: "ATAQUE OPORTUNO",
-        description: "Você gasta 2 PE para executar um GOLPE ADICIONAL na mesma rodada.",
-        cost: "2 PE",
-      },
-      {
-        id: "c6",
-        name: "AMANTE DA VIOLÊNCIA",
-        description:
-          "Você pode gastar 2 PE e por 4 Rodadas, todos os seus testes de ataque e manobras e seus de dano recebem um bônus de +2 no modificador.",
-        cost: "2 PE",
-      },
-      {
-        id: "c7",
-        name: "DETERMINAÇÃO FORTALEZA PSÍQUICA",
-        description:
-          "Você gasta 3 PE para ganhar +1 no modificador contra testes que vão contra sua Sanidade, e você ganha resistência 5 a dano de sua Sanidade após fazer o teste.",
-        cost: "3 PE",
-      },
-      {
-        id: "c8",
-        name: "TÉCNICA IMPREVISÍVEL",
-        description: "Você pode executar manobras mesmo se suas mãos estiverem ocupadas.",
-      },
-      {
-        id: "c9",
-        name: "TREINAMENTO ATLÉTICO",
-        description: "Em um teste relacionado à Atletismo você pode rolar com vantagem",
-      },
-      {
-        id: "c10",
-        name: "MESTRE DE ARMAS",
-        description:
-          "Você pode escolher uma das categorias de arma, sendo Corpo A Corpo ou Precisão e você adiciona 1 dado a mais da arma em dano do mesmo tipo",
-      },
-      {
-        id: "c11",
-        name: "DEMÔNIO DO SUBMUNDO",
-        description:
-          "Caso o inimigo se desloque a 2 metros gaste 2 PE para executar um ataque no mesmo e caso for crítico você interrompe seu deslocamento e ele fica na posição onde tomou o ataque",
-        cost: "2 PE",
-      },
-      {
-        id: "c12",
-        name: "COMBATE AMBIDESTRO",
-        description: "Com uma arma leve em cada mão, você pode executar um GOLPE ADICIONAL com a segunda arma",
-      },
-      {
-        id: "c13",
-        name: "INFLUÊNCIA CORPORAL",
-        description:
-          "Você pode usar traços relacionados ao seu corpo em vez de traços relacionados a presença para intimidar alguém",
-      },
-      {
-        id: "c14",
-        name: "ÍMPETO ASSASSINO",
-        description:
-          "Ao finalizar um inimigo você pode executar um ataque logo após em outro inimigo ao alcance de sua arma",
-      },
-      {
-        id: "c15",
-        name: "DEFESA IMPENETRÁVEL",
-        description:
-          "Gastando sua reação e 3 PE, você ganha resistência 5 a danos físicos até o final da sua próxima rodada",
-        cost: "3 PE",
-      },
-      {
-        id: "c16",
-        name: "VIGOR SOBRE-HUMANO",
-        description:
-          "Quando você rolar 1d20 para um teste relacionado ao seu corpo e cair 19, gaste 1 PE para o tornar um crítico.",
-        cost: "1 PE",
-      },
-      {
-        id: "c17",
-        name: "VIDA LONGA AO REI",
-        description:
-          "Quando você cair com 0 PV ou entrar no estado morrendo, gaste 2 PE para você levantar com 5 PV",
-        cost: "2 PE",
-      },
-      {
-        id: "c18",
-        name: "PUNHOS DE FERRO",
-        description:
-          "Seus socos naturalmente causam 1d6 de dano e são considerados Armas Brancas e conta como duas armas leves cada, você pode usar talentos que só funcionam em arma em seus punhos seguindo seus pré-requisitos.",
-      },
-      {
-        id: "c19",
-        name: "MANIFESTAÇÃO SOBRENATURAL",
-        description:
-          "Você expõe a forma física do seu pacto adicionando +1d6 de dano paranormal somado a primeira arma que estiver em sua mão é aos seus danos físicos pelo resto do combate",
-      },
-      {
-        id: "c20",
-        name: "LÍDER TÁTICO",
-        description:
-          "Gaste 3 PE para coordenar seus aliados durante um combate, escolha para até três aliados uma das seguintes posições: Linha de Frente (+1d4 em testes de manobra), Artilharia (+1d4 de Dano), ou Médico de batalha (+1d4 em testes para auxiliar).",
-        cost: "3 PE",
-      },
-      {
-        id: "c21",
-        name: "GOLPE DO OUTRO LADO",
-        description:
-          "Você pode gastar 2 PE para receber uma quantidade de dano extra igual a +2 para cada Defeito atual do seu personagem até o começo do seu próximo turno.",
-        cost: "2 PE",
-      },
-      {
-        id: "c22",
-        name: "ASSIMILAÇÃO CARNAL",
-        description:
-          "Ao ver alguém morrendo que não seja uma criatura paranormal, você pode gastar 2 PE para roubar parte da carne do mesmo para se recuperar, recuperando 1d8 PV",
-        cost: "2 PE",
-      },
-      {
-        id: "c23",
-        name: "MENTE BLINDADA",
-        description:
-          "Para cada defeito mental do seu personagem, você ganha +1 na sua Defesa passiva quando estiver sem armadura.",
-      },
-      {
-        id: "c24",
-        name: "Armamento Pesado",
-        description: "Você recebe proficiência com armas pesadas.",
-        prerequisite: "Força 2",
-      },
-      {
-        id: "c25",
-        name: "Artista Marcial",
-        description:
-          "Seus ataques desarmados causam 1d6 pontos de dano. Em Nível 7, o dano aumenta para 1d8 e, em Nível 14, para 1d10.",
-      },
-      {
-        id: "c26",
-        name: "ESTILO DE DUAS LÂMINAS",
-        description:
-          "Se estiver usando duas armas (e pelo menos uma for leve) e fizer a ação agredir, você pode fazer dois ataques, um com cada arma. Se fizer isso, sofre –1D20 em todos os testes de ataque até o seu próximo turno.",
-        prerequisite: "Agilidade 3, treinado em Luta ou Pontaria",
-      },
-      {
-        id: "c27",
-        name: "POSTURA CAUTELOSA",
-        description:
-          "Quando usa a ação agredir, você pode combater defensivamente. Se fizer isso, até seu próximo turno, sofre –1D20 em todos os testes de ataque, mas recebe +5 na Defesa.",
-        prerequisite: "Inteligência 2",
-      },
-      {
-        id: "c28",
-        name: "Golpe Pesado",
-        description: "O dano de suas armas corpo a corpo aumenta em mais um dado do mesmo tipo.",
-      },
-      {
-        id: "c29",
-        name: "Incansável",
-        description:
-          "Uma vez por cena, você pode gastar 2 PE para fazer uma ação de investigação adicional, mas deve usar Força ou Agilidade como atributo-base do teste.",
-        cost: "2 PE",
-      },
-      {
-        id: "c30",
-        name: "AGILIDADE TÁTICA",
-        description:
-          "Quando faz um teste de facilitar a investigação, você pode gastar 1 PE para usar Força ou Agilidade no lugar do atributo-base da perícia. Se passar no teste, o próximo aliado que usar seu bônus também recebe +1D20 no teste.",
-        cost: "1 PE",
-      },
-      {
-        id: "c31",
-        name: "TREINAMENTO EM ARMADURAS PESADAS",
-        description: "Você recebe proficiência com Proteções Pesadas.",
-        prerequisite: "Nível 6",
-      },
-      {
-        id: "c32",
-        name: "Reflexos Defensivos",
-        description: "Você recebe +2 em Defesa e em testes de resistência.",
-        prerequisite: "Agilidade 2",
-      },
-      {
-        id: "c33",
-        name: "Saque Rápido",
-        description:
-          "Você pode sacar ou guardar itens como uma ação livre. Uma vez por rodada pode recarregar uma arma de disparo como uma ação livre.",
-        prerequisite: "treinado em Iniciativa",
-      },
-      {
-        id: "c34",
-        name: "RAJADA CONTÍNUA",
-        description:
-          "Sempre que acerta um ataque com uma arma de fogo, pode fazer outro ataque com a mesma arma contra o mesmo alvo, pagando 2 PE por cada ataque já realizado no turno.",
-        prerequisite: "Nível 12",
-        cost: "2+ PE",
-      },
-      {
-        id: "c35",
-        name: "ANÁLISE DE COMBATE",
-        description:
-          "Você pode gastar uma ação de movimento e 2 PE para analisar o ambiente. Se fizer isso, recebe um bônus em Defesa e em testes de resistência igual ao seu Intelecto até o final da cena.",
-        prerequisite: "treinado em Percepção e Tática",
-        cost: "2 PE",
-      },
-      {
-        id: "c36",
-        name: "Tanque de Guerra",
-        description:
-          "Se estiver usando uma TREINAMENTO EM ARMADURAS PESADAS, a Defesa e a resistência a dano que ela fornece aumentam em +2.",
-        prerequisite: "TREINAMENTO EM ARMADURAS PESADAS",
-      },
-      {
-        id: "c37",
-        name: "MIRA AFIADA",
-        description:
-          "Se estiver usando uma arma de disparo, você soma sua Agilidade nas rolagens de dano e ignora a penalidade contra alvos envolvidos em combate corpo a corpo.",
-        prerequisite: "treinado em Pontaria",
-      },
-      {
-        id: "c38",
-        name: "FOGO DE SUPRESSÃO",
-        description:
-          "Você pode gastar uma ação padrão e 1 PE para disparar uma arma de fogo para forçar um personagem a se proteger. Se vencer no teste de Pontaria contra a Vontade do alvo, até o início do seu próximo turno o alvo não pode sair do lugar e sofre –5 em testes de ataque.",
-        cost: "1 PE",
-      },
-      {
-        id: "c39",
-        name: "DOR MANTENEDORA",
-        description:
-          "Você não fica inconsciente por estar morrendo, mas sempre que terminar uma rodada nesta condição e consciente, perde 2 pontos de Sanidade",
-      },
-      {
-        id: "c40",
-        name: "MÁRTIR DO GRUPO",
-        description:
-          "Quando usa a ação sacrifício em uma cena de perseguição, você pode gastar 1 PE para fornecer +1D20 extra nos testes dos outros personagens.",
-        cost: "1 PE",
-      },
-      {
-        id: "c41",
-        name: "Instinto de Fuga",
-        description:
-          "Quando uma cena de perseguição tem início, você recebe +2 em todos os testes de perícia que fizer durante a cena.",
-        prerequisite: "treinado em Intuição",
-      },
-      {
-        id: "c42",
-        name: "DESPERTAR PARANORMAL",
-        description:
-          "Escolha um poder paranormal. Você recebe o poder escolhido, mas não ganha Sanidade neste aumento de NEX. Você pode escolher este poder várias vezes.",
-      },
-      {
-        id: "c43",
-        name: "Treinamento em Perícia",
-        description:
-          "Escolha duas perícias. Você se torna treinado nessas perícias. A partir de Nível 7, você pode escolher perícias nas quais já é treinado para se tornar veterano.",
-      },
-    ],
-    paths: [
-      {
-        name: "Trilha de Armas",
-        levels: [
-          {
-            level: 1,
-            abilities: [
-              {
-                id: "ca1-1",
-                name: "Maestria em Armas de Fogo - Nível 1",
-                description:
-                  "Você recebe proficiência com armas táticas de fogo e +1 em rolagens de dano com essas armas.",
-              },
-            ],
-          },
-          {
-            level: 2,
-            abilities: [
-              {
-                id: "ca1-2",
-                name: "Maestria em Armas de Fogo - Nível 2",
-                description:
-                  "Você recebe proficiência com armas táticas de fogo e +2 em rolagens de dano com essas armas.",
-              },
-            ],
-          },
-          {
-            level: 3,
-            abilities: [
-              {
-                id: "ca1-3",
-                name: "Maestria em Armas de Fogo - Nível 3",
-                description:
-                  "Você recebe proficiência com armas táticas de fogo e +3 em rolagens de dano com essas armas.",
-              },
-            ],
-          },
-          {
-            level: 4,
-            abilities: [
-              {
-                id: "ca1-4",
-                name: "Maestria em Armas de Fogo - Nível 4",
-                description:
-                  "Você recebe proficiência com armas táticas de fogo e +4 em rolagens de dano com essas armas.",
-              },
-            ],
-          },
-          {
-            level: 5,
-            abilities: [
-              {
-                id: "ca1-5",
-                name: "Maestria em Armas de Fogo - Nível 5",
-                description:
-                  "Você recebe proficiência com armas táticas de fogo e +5 em rolagens de dano com essas armas.",
-              },
-            ],
-          },
-        ],
-      },
-      {
-        name: "Trilha de Defesa",
-        levels: [
-          {
-            level: 1,
-            abilities: [
-              {
-                id: "cd1-1",
-                name: "Esconderijo Desesperado - Nível 1",
-                description:
-                  "Você já esteve diante de coisas que não podem ser derrotadas. Você não sofre –1D20 em testes de Furtividade por se mover ao seu deslocamento normal.",
-              },
-            ],
-          },
-          {
-            level: 2,
-            abilities: [
-              {
-                id: "cd1-2",
-                name: "Esconderijo Desesperado - Nível 2",
-                description:
-                  "Você já esteve diante de coisas que não podem ser derrotadas. Você não sofre –1D20 em testes de Furtividade por se mover ao seu deslocamento normal e recebe +1 em testes de Furtividade.",
-              },
-            ],
-          },
-          {
-            level: 3,
-            abilities: [
-              {
-                id: "cd1-3",
-                name: "Esconderijo Desesperado - Nível 3",
-                description:
-                  "Você já esteve diante de coisas que não podem ser derrotadas. Você não sofre –1D20 em testes de Furtividade por se mover ao seu deslocamento normal e recebe +2 em testes de Furtividade.",
-              },
-            ],
-          },
-          {
-            level: 4,
-            abilities: [
-              {
-                id: "cd1-4",
-                name: "Esconderijo Desesperado - Nível 4",
-                description:
-                  "Você já esteve diante de coisas que não podem ser derrotadas. Você não sofre –1D20 em testes de Furtividade por se mover ao seu deslocamento normal e recebe +3 em testes de Furtividade.",
-              },
-            ],
-          },
-          {
-            level: 5,
-            abilities: [
-              {
-                id: "cd1-5",
-                name: "Esconderijo Desesperado - Nível 5",
-                description:
-                  "Você já esteve diante de coisas que não podem ser derrotadas. Você não sofre –1D20 em testes de Furtividade por se mover ao seu deslocamento normal e recebe +4 em testes de Furtividade.",
-              },
-            ],
-          },
-        ],
-      },
-    ],
+export const ABILITIES: Ability[] = [
+  // COMBATENTE
+  {
+    id: "furia-incontida",
+    name: "Fúria Incontida",
+    classId: "Combatente",
+    description: "Você gasta 3 PE para entrar em um estado de fúria por 3 rodadas, recebendo +2 em rolagens de dano corpo a corpo e resistência a dano físico 2, porém não pode conjurar magias.",
+    type: "ativa",
+    cost: "3 PE"
+  },
+  {
+    id: "investida-destrutiva",
+    name: "Investida Destrutiva",
+    classId: "Combatente",
+    description: "Você gasta 2 PE ao se mover pelo menos 6 metros em linha reta antes de atacar para adicionar +1d8 de dano ao ataque.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "vitalidade-macabra",
+    name: "Vitalidade Macabra",
+    classId: "Combatente",
+    description: "Você pode conjurar uma de suas magias de Maldição pagando PV iguais aos PE do custo da magia, sendo afetado normalmente por habilidades que alterem esse custo.",
+    type: "passiva"
+  },
+  {
+    id: "golpe-focado",
+    name: "Golpe Focado",
+    classId: "Combatente",
+    description: "Você gasta 2 PE ao realizar um ataque para receber +5 no teste de ataque ou na rolagem de dano, podendo gastar +1 PE adicional para cada +5 extra, distribuindo entre ataque ou dano.",
+    type: "ativa",
+    cost: "2+ PE"
+  },
+  {
+    id: "ataque-oportuno",
+    name: "Ataque Oportuno",
+    classId: "Combatente",
+    description: "Você gasta 2 PE para realizar um golpe adicional na mesma rodada.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "amante-da-violencia",
+    name: "Amante da Violência",
+    classId: "Combatente",
+    description: "Você gasta 2 PE para, durante 4 rodadas, receber +2 em testes de ataque, manobras e dano.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "determinacao-fortaleza-psiquica",
+    name: "Determinação Fortaleza Psíquica",
+    classId: "Combatente",
+    description: "Você gasta 3 PE para ganhar +1 em testes contra sanidade e resistência 5 a dano de sanidade após o teste.",
+    type: "ativa",
+    cost: "3 PE"
+  },
+  {
+    id: "tecnica-imprevisivel",
+    name: "Técnica Imprevisível",
+    classId: "Combatente",
+    description: "Você, de forma passiva, pode executar manobras mesmo com as mãos ocupadas.",
+    type: "passiva"
+  },
+  {
+    id: "treinamento-atletico",
+    name: "Treinamento Atlético",
+    classId: "Combatente",
+    description: "Você, de forma passiva, pode rolar com vantagem em testes de Atletismo.",
+    type: "passiva"
+  },
+  {
+    id: "mestre-de-armas",
+    name: "Mestre de Armas",
+    classId: "Combatente",
+    description: "Você, de forma passiva, escolhe uma categoria de arma (corpo a corpo ou precisão) e adiciona +1 dado de dano do mesmo tipo.",
+    type: "passiva"
+  },
+  {
+    id: "demonio-do-submundo",
+    name: "Demônio do Submundo",
+    classId: "Combatente",
+    description: "Você gasta 2 PE quando um inimigo se desloca até 2 metros para realizar um ataque nele, e em caso de crítico, interrompe o movimento.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "combate-ambidestro",
+    name: "Combate Ambidestro",
+    classId: "Combatente",
+    description: "Você, de forma passiva, ao usar duas armas leves pode realizar um golpe adicional com a segunda arma.",
+    type: "passiva"
+  },
+  {
+    id: "influencia-corporal",
+    name: "Influência Corporal",
+    classId: "Combatente",
+    description: "Você, de forma passiva, pode usar traços físicos no lugar de presença para intimidar.",
+    type: "passiva"
+  },
+  {
+    id: "impeto-assassino",
+    name: "Ímpeto Assassino",
+    classId: "Combatente",
+    description: "Você, de forma passiva, ao derrotar um inimigo pode realizar um ataque imediato contra outro alvo ao alcance.",
+    type: "passiva"
+  },
+  {
+    id: "defesa-impenetravel",
+    name: "Defesa Impenetrável",
+    classId: "Combatente",
+    description: "Você gasta 3 PE como reação para receber resistência 5 a dano físico até o final da próxima rodada.",
+    type: "ativa",
+    cost: "3 PE"
+  },
+  {
+    id: "vigor-sobre-humano",
+    name: "Vigor Sobre-Humano",
+    classId: "Combatente",
+    description: "Você gasta 1 PE ao tirar 19 em um teste físico com 1d20 para transformar o resultado em crítico.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "vida-longa-ao-rei",
+    name: "Vida Longa ao Rei",
+    classId: "Combatente",
+    description: "Você gasta 2 PE ao cair a 0 PV ou entrar em estado de morrendo para se levantar com 5 PV.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "punhos-de-ferro",
+    name: "Punhos de Ferro",
+    classId: "Combatente",
+    description: "Você, de forma passiva, causa 1d6 de dano com socos, que contam como armas leves e permitem uso de talentos aplicáveis.",
+    type: "passiva"
+  },
+  {
+    id: "manifestacao-sobrenatural",
+    name: "Manifestação Sobrenatural",
+    classId: "Combatente",
+    description: "Você gasta 2 PE para adicionar +1d6 de dano paranormal à sua arma principal e aos seus danos físicos pelo resto do combate.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "lider-tatico",
+    name: "Líder Tático",
+    classId: "Combatente",
+    description: "Você gasta 3 PE para designar até três aliados com funções (linha de frente, artilharia ou médico), concedendo +1d4 em efeitos específicos, mantendo com reação a cada rodada.",
+    type: "ativa",
+    cost: "3 PE"
+  },
+  {
+    id: "golpe-do-outro-lado",
+    name: "Golpe do Outro Lado",
+    classId: "Combatente",
+    description: "Você gasta 2 PE para receber +2 de dano por defeito atual até o início do seu próximo turno.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "assimilacao-carnal",
+    name: "Assimilação Carnal",
+    classId: "Combatente",
+    description: "Você gasta 2 PE ao ver um ser morrer para recuperar 1d8 PV absorvendo sua carne.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "mente-blindada",
+    name: "Mente Blindada",
+    classId: "Combatente",
+    description: "Você, de forma passiva, recebe +1 de Defesa por defeito mental enquanto estiver sem armadura.",
+    type: "passiva"
+  },
+  {
+    id: "armamento-pesado",
+    name: "Armamento Pesado",
+    classId: "Combatente",
+    description: "Você, de forma passiva, recebe proficiência com armas pesadas. Pré-requisito: For 2.",
+    type: "passiva",
+    prerequisite: "For 2"
+  },
+  {
+    id: "artista-marcial",
+    name: "Artista Marcial",
+    classId: "Combatente",
+    description: "Você, de forma passiva, causa 1d6 de dano desarmado (evoluindo com nível), podendo causar dano letal e sendo considerado arma ágil.",
+    type: "passiva"
+  },
+  {
+    id: "estilo-de-duas-laminas",
+    name: "Estilo de Duas Lâminas",
+    classId: "Combatente",
+    description: "Você, de forma passiva, ao atacar com duas armas pode realizar dois ataques, sofrendo –1d20 nos testes até o próximo turno. Pré-requisitos: Agi 3.",
+    type: "passiva",
+    prerequisite: "Agi 3"
+  },
+  {
+    id: "postura-cautelosa",
+    name: "Postura Cautelosa",
+    classId: "Combatente",
+    description: "Você gasta 1 PE ao atacar para receber +5 na Defesa, sofrendo –1d20 nos testes de ataque até o próximo turno. Pré-requisito: Int 2.",
+    type: "ativa",
+    cost: "1 PE",
+    prerequisite: "Int 2"
+  },
+  {
+    id: "golpe-pesado",
+    name: "Golpe Pesado",
+    classId: "Combatente",
+    description: "Você, de forma passiva, aumenta o dano de armas corpo a corpo em +1 dado do mesmo tipo.",
+    type: "passiva"
+  },
+  {
+    id: "incansavel",
+    name: "Incansável",
+    classId: "Combatente",
+    description: "Você gasta 2 PE uma vez por cena para realizar uma ação extra de investigação usando Força ou Agilidade.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "agilidade-tatica",
+    name: "Agilidade Tática",
+    classId: "Combatente",
+    description: "Você gasta 1 PE para usar Força ou Agilidade em testes de investigação e, se passar, concede +1d20 ao próximo aliado.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "treinamento-em-armaduras-pesadas",
+    name: "Treinamento em Armaduras Pesadas",
+    classId: "Combatente",
+    description: "Você, de forma passiva, recebe proficiência com armaduras pesadas. Pré-requisito: Nível 6.",
+    type: "passiva",
+    prerequisite: "Nível 6"
+  },
+  {
+    id: "reflexos-defensivos",
+    name: "Reflexos Defensivos",
+    classId: "Combatente",
+    description: "Você, de forma passiva, recebe +2 em Defesa e testes de resistência. Pré-requisito: Agi 2.",
+    type: "passiva",
+    prerequisite: "Agi 2"
+  },
+  {
+    id: "rajada-continua",
+    name: "Rajada Contínua",
+    classId: "Combatente",
+    description: "Você gasta PE progressivamente ao acertar ataques com arma de fogo para realizar ataques adicionais no mesmo alvo até errar ou atingir o limite.",
+    type: "ativa",
+    cost: "variável"
+  },
+  {
+    id: "analise-de-combate",
+    name: "Análise de Combate",
+    classId: "Combatente",
+    description: "Você gasta 2 PE e uma ação de movimento para ganhar bônus em Defesa e resistência igual ao Intelecto até o fim da cena.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "tanque-de-guerra",
+    name: "Tanque de Guerra",
+    classId: "Combatente",
+    description: "Você, de forma passiva, aumenta em +2 a Defesa e resistência de armaduras pesadas. Pré-requisito: treinamento em armaduras pesadas.",
+    type: "passiva",
+    prerequisite: "treinamento em armaduras pesadas"
+  },
+  {
+    id: "mira-afiada",
+    name: "Mira Afiada",
+    classId: "Combatente",
+    description: "Você, de forma passiva, soma Agilidade no dano com armas de disparo e ignora penalidades contra alvos engajados.",
+    type: "passiva"
+  },
+  {
+    id: "fogo-de-supressao",
+    name: "Fogo de Supressão",
+    classId: "Combatente",
+    description: "Você gasta 1 PE e uma ação para forçar um alvo a se proteger, impedindo movimento e impondo –5 em ataques se falhar.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "dor-mantenedora",
+    name: "Dor Mantenedora",
+    classId: "Combatente",
+    description: "Você, de forma passiva, não fica inconsciente ao estar morrendo, mas perde 2 PE por rodada nessa condição.",
+    type: "passiva"
+  },
+  {
+    id: "martir-do-grupo",
+    name: "Mártir do Grupo",
+    classId: "Combatente",
+    description: "Você gasta 1 PE para melhorar bônus de aliados em perseguições ou furtividade ao se expor.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "instinto-de-fuga",
+    name: "Instinto de Fuga",
+    classId: "Combatente",
+    description: "Você, de forma passiva, recebe +2 em testes durante perseguições. Pré-requisito: Intuição.",
+    type: "passiva",
+    prerequisite: "Intuição"
+  },
+  {
+    id: "despertar-paranormal-combatente",
+    name: "Despertar Paranormal",
+    classId: "Combatente",
+    description: "Você, de forma passiva, recebe um poder paranormal sem ganhar sanidade, podendo escolher várias vezes.",
+    type: "passiva"
+  },
+  {
+    id: "treinamento-em-pericia-combatente",
+    name: "Treinamento em Perícia",
+    classId: "Combatente",
+    description: "Você, de forma passiva, se torna treinado em duas perícias, podendo evoluir com nível e repetir o talento.",
+    type: "passiva"
   },
 
-  especialista: {
-    name: "Especialista",
-    generalAbilities: [
-      {
-        id: "e1",
-        name: "MENTE ANALÍTICA",
-        description:
-          "Uma vez por cena, você pode observar um inimigo por uma rodada completa. No seu próximo turno, seus ataques contra esse inimigo têm vantagem e causam +1d6 de dano extra.",
-      },
-      {
-        id: "e2",
-        name: "GAMBIARRA EXPLOSIVA",
-        description:
-          "Gastando 3 PE e uma ação completa, você pode transformar um item eletrônico comum em uma granada improvisada que causa 3d6 de dano em área (raio de 3m).",
-        cost: "3 PE",
-      },
-      {
-        id: "e3",
-        name: "CONCENTRAÇÃO EXTREMA",
-        description:
-          "Quando conjurar um ritual que precisa de um teste de resistência do alvo, você pode gastar 1 PE para adicionar +2 na DT do teste temporariamente.",
-        cost: "1+ PE",
-      },
-      {
-        id: "e4",
-        name: "ESPECIALISTA NATO",
-        description:
-          "Escolha duas perícias nas quais você é treinado. Quando faz um teste de uma dessas perícias, você pode gastar 2 PE para somar +1d6 no resultado do teste.",
-        cost: "2+ PE",
-      },
-      {
-        id: "e5",
-        name: "REAÇÃO ANÔMALA",
-        description: "Você pode usar sua reação para aderir +2 na sua Defesa.",
-      },
-      {
-        id: "e6",
-        name: "MOVIMENTAÇÃO ESPECTRAL",
-        description:
-          "Você consegue se contorcer e se movimentar de forma tão esguia que nenhuma outra pessoa consegue. Você recebe vantagem em testes para passar por terrenos difíceis.",
-      },
-      {
-        id: "e7",
-        name: "CONHECIMENTO GERAL",
-        description:
-          "Quando faz um teste de uma perícia, você pode gastar 2 PE para receber os benefícios de ser treinado nesta perícia",
-        cost: "2 PE",
-      },
-      {
-        id: "e8",
-        name: "CONJURAÇÃO INSTINTIVA",
-        description:
-          "Você não paga o custo do primeiro ritual que você usar em uma cena de combate.",
-      },
-      {
-        id: "e9",
-        name: "ÂNCORA ESPIRITUAL",
-        description:
-          "Você pode sustentar dois rituais simultaneamente desde que você pague o custo de ambas as sustentações",
-      },
-      {
-        id: "e10",
-        name: "EXPANSÃO DE DOMÍNIO",
-        description:
-          "Quando um alvo tiver que fazer um teste para resistir a um dos seus rituais, você pode usar essa habilidade gastando 2 PE para que ele tenha desvantagem nesse teste.",
-        cost: "2 PE",
-      },
-    ],
-    paths: [
-      {
-        name: "Trilha de Magia",
-        levels: [
-          {
-            level: 1,
-            abilities: [
-              {
-                id: "em1-1",
-                name: "Domínio da Magia - Nível 1",
-                description:
-                  "Você aprende a canalizar melhor sua energia mágica. Seus rituais ganham +1 em testes de resistência.",
-              },
-            ],
-          },
-          {
-            level: 2,
-            abilities: [
-              {
-                id: "em1-2",
-                name: "Domínio da Magia - Nível 2",
-                description:
-                  "Você aprende a canalizar melhor sua energia mágica. Seus rituais ganham +2 em testes de resistência.",
-              },
-            ],
-          },
-          {
-            level: 3,
-            abilities: [
-              {
-                id: "em1-3",
-                name: "Domínio da Magia - Nível 3",
-                description:
-                  "Você aprende a canalizar melhor sua energia mágica. Seus rituais ganham +3 em testes de resistência.",
-              },
-            ],
-          },
-          {
-            level: 4,
-            abilities: [
-              {
-                id: "em1-4",
-                name: "Domínio da Magia - Nível 4",
-                description:
-                  "Você aprende a canalizar melhor sua energia mágica. Seus rituais ganham +4 em testes de resistência.",
-              },
-            ],
-          },
-          {
-            level: 5,
-            abilities: [
-              {
-                id: "em1-5",
-                name: "Domínio da Magia - Nível 5",
-                description:
-                  "Você aprende a canalizar melhor sua energia mágica. Seus rituais ganham +5 em testes de resistência.",
-              },
-            ],
-          },
-        ],
-      },
-      {
-        name: "Trilha de Perícia",
-        levels: [
-          {
-            level: 1,
-            abilities: [
-              {
-                id: "ep1-1",
-                name: "Maestria em Perícia - Nível 1",
-                description:
-                  "Você se torna um mestre em suas perícias. Receba +1 em testes de perícias nas quais você é treinado.",
-              },
-            ],
-          },
-          {
-            level: 2,
-            abilities: [
-              {
-                id: "ep1-2",
-                name: "Maestria em Perícia - Nível 2",
-                description:
-                  "Você se torna um mestre em suas perícias. Receba +2 em testes de perícias nas quais você é treinado.",
-              },
-            ],
-          },
-          {
-            level: 3,
-            abilities: [
-              {
-                id: "ep1-3",
-                name: "Maestria em Perícia - Nível 3",
-                description:
-                  "Você se torna um mestre em suas perícias. Receba +3 em testes de perícias nas quais você é treinado.",
-              },
-            ],
-          },
-          {
-            level: 4,
-            abilities: [
-              {
-                id: "ep1-4",
-                name: "Maestria em Perícia - Nível 4",
-                description:
-                  "Você se torna um mestre em suas perícias. Receba +4 em testes de perícias nas quais você é treinado.",
-              },
-            ],
-          },
-          {
-            level: 5,
-            abilities: [
-              {
-                id: "ep1-5",
-                name: "Maestria em Perícia - Nível 5",
-                description:
-                  "Você se torna um mestre em suas perícias. Receba +5 em testes de perícias nas quais você é treinado.",
-              },
-            ],
-          },
-        ],
-      },
-    ],
+  // ESPECIALISTA
+  {
+    id: "mente-analitica",
+    name: "Mente Analítica",
+    classId: "Especialista",
+    description: "Você gasta 2 PE ao observar um inimigo por uma rodada completa para, no próximo turno, receber vantagem nos ataques contra ele e causar +1d6 de dano extra.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "gambiarra-explosiva",
+    name: "Gambiarra Explosiva",
+    classId: "Especialista",
+    description: "Você gasta 3 PE e uma ação completa para transformar um item eletrônico comum em uma granada improvisada que causa 3d6 de dano em área (raio de 3m).",
+    type: "ativa",
+    cost: "3 PE"
+  },
+  {
+    id: "concentracao-extrema",
+    name: "Concentração Extrema",
+    classId: "Especialista",
+    description: "Você gasta 1 PE ao conjurar uma magia que exige teste de resistência para aumentar a DT em +2, podendo gastar +1 PE adicional para aumentar ainda mais esse bônus.",
+    type: "ativa",
+    cost: "1+ PE"
+  },
+  {
+    id: "especialista-nato",
+    name: "Especialista Nato",
+    classId: "Especialista",
+    description: "Você gasta 2 PE ao realizar um teste em uma das duas perícias escolhidas para adicionar +1d6, podendo gastar +1 PE extra para aumentar o dado conforme o nível.",
+    type: "ativa",
+    cost: "2+ PE"
+  },
+  {
+    id: "reacao-anomala",
+    name: "Reação Anômala",
+    classId: "Especialista",
+    description: "Você gasta 1 PE como reação para receber +2 na Defesa.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "movimentacao-espectral",
+    name: "Movimentação Espectral",
+    classId: "Especialista",
+    description: "Você, de forma passiva, possui vantagem em testes para atravessar terrenos difíceis ou espaços apertados.",
+    type: "passiva"
+  },
+  {
+    id: "conhecimento-geral",
+    name: "Conhecimento Geral",
+    classId: "Especialista",
+    description: "Você gasta 2 PE ao realizar um teste de perícia para receber os benefícios de ser treinado nela.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "conjuracao-instintiva",
+    name: "Conjuração Instintiva",
+    classId: "Especialista",
+    description: "Você, de forma passiva, não paga o custo da primeira magia usada em uma cena de combate.",
+    type: "passiva"
+  },
+  {
+    id: "ancora-espiritual",
+    name: "Âncora Espiritual",
+    classId: "Especialista",
+    description: "Você, de forma passiva, pode sustentar dois rituais simultaneamente pagando normalmente seus custos.",
+    type: "passiva"
+  },
+  {
+    id: "expansao-de-dominio",
+    name: "Expansão de Domínio",
+    classId: "Especialista",
+    description: "Você gasta 2 PE para impor desvantagem no teste de resistência de um alvo contra suas magias.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "suporte-mistico",
+    name: "Suporte Místico",
+    classId: "Especialista",
+    description: "Você gasta 2 PE ao auxiliar um aliado para conceder vantagem e adicionar um dos seus traços ao teste dele.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "aceleracao-obscura",
+    name: "Aceleração Obscura",
+    classId: "Especialista",
+    description: "Você gasta 3 PE para conjurar todas as suas magias como ação de movimento até o final do turno. Pré-requisito: Nível 10.",
+    type: "ativa",
+    cost: "3 PE",
+    prerequisite: "Nível 10"
+  },
+  {
+    id: "pericia-maximizada",
+    name: "Perícia Maximizada",
+    classId: "Especialista",
+    description: "Você gasta 2 PE ao realizar um teste com um traço para dobrar o bônus total concedido por ele.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "lider-dos-fugitivos",
+    name: "Líder dos Fugitivos",
+    classId: "Especialista",
+    description: "Você gasta 2 PE para realizar uma ação de furtividade em grupo usando apenas sua rolagem.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "adaptacao-a-armaduras",
+    name: "Adaptação a Armaduras",
+    classId: "Especialista",
+    description: "Você, de forma passiva, pode usar armaduras pesadas. Pré-requisito: Nível 10.",
+    type: "passiva",
+    prerequisite: "Nível 10"
+  },
+  {
+    id: "absorcao-eficiente",
+    name: "Absorção Eficiente",
+    classId: "Especialista",
+    description: "Você, de forma passiva, rola duas vezes os dados de PE ao absorver um item sagrado e escolhe o melhor resultado.",
+    type: "passiva"
+  },
+  {
+    id: "talento-inato",
+    name: "Talento Inato",
+    classId: "Especialista",
+    description: "Você gasta 1 PE ao realizar um teste envolvendo um traço para adicionar +1d4 ao resultado.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "golpe-furtivo-aprimorado",
+    name: "Golpe Furtivo Aprimorado",
+    classId: "Especialista",
+    description: "Você gasta 1 PE para adicionar +1d6 de dano em ataques furtivos.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "ajudante-energetico",
+    name: "Ajudante Energético",
+    classId: "Especialista",
+    description: "Você gasta 1 PE para conceder resistência a dano igual à metade de +4 a um aliado no próximo teste de Vontade.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "dor-catalisadora",
+    name: "Dor Catalisadora",
+    classId: "Especialista",
+    description: "Você sofre 2d8 de dano de PE para receber vantagem no seu próximo teste.",
+    type: "ativa",
+    cost: "2d8 PE"
+  },
+  {
+    id: "percepcao-aguçada",
+    name: "Percepção Aguçada",
+    classId: "Especialista",
+    description: "Você, de forma passiva, possui vantagem em testes de percepção durante cenas apropriadas.",
+    type: "passiva"
+  },
+  {
+    id: "ultima-chance",
+    name: "Última Chance",
+    classId: "Especialista",
+    description: "Você gasta 2 PE para transformar sua ação de movimento em reação até o final da próxima rodada.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "carrasco",
+    name: "Carrasco",
+    classId: "Especialista",
+    description: "Você gasta 2 PE ao conjurar uma magia de maldição sustentada para fazer com que, se ela for cancelada, o alvo sofra 2d8 de dano do mesmo elemento.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "genialidade-oculta",
+    name: "Genialidade Oculta",
+    classId: "Especialista",
+    description: "Você, de forma passiva, ao tirar 19 em testes de ocultismo com 1d20, transforma o resultado em crítico.",
+    type: "passiva"
+  },
+  {
+    id: "ajudante",
+    name: "Ajudante",
+    classId: "Especialista",
+    description: "Você gasta 1 PE para conceder vantagem no próximo teste de um aliado durante combate.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "mente-de-caçador",
+    name: "Mente de Caçador",
+    classId: "Especialista",
+    description: "Você gasta 2 PE e uma ação para fazer duas perguntas sobre uma criatura em vez de uma.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "recuperacao-mental",
+    name: "Recuperação Mental",
+    classId: "Especialista",
+    description: "Você, de forma passiva, ao chegar a 0 PE ou ficar insano, retorna ao estado normal com 1 PE.",
+    type: "passiva"
+  },
+  {
+    id: "jogo-do-destino",
+    name: "Jogo do Destino",
+    classId: "Especialista",
+    description: "Você gasta 16 PE durante seu turno para reiniciar toda a rodada, anulando eventos, danos, ações e mortes, mantendo apenas o dano mental sofrido. Pré-requisito: Nível 14.",
+    type: "ativa",
+    cost: "16 PE",
+    prerequisite: "Nível 14"
+  },
+  {
+    id: "maestria-em-armas-de-fogo",
+    name: "Maestria em Armas de Fogo",
+    classId: "Especialista",
+    description: "Você, de forma passiva, recebe proficiência com armas de fogo táticas e +2 no dano com elas.",
+    type: "passiva"
+  },
+  {
+    id: "intelecto-pratico",
+    name: "Intelecto Prático",
+    classId: "Especialista",
+    description: "Você gasta 2 PE para usar Intelecto no lugar do atributo base em testes de perícia. Pré-requisito: Int 2.",
+    type: "ativa",
+    cost: "2 PE",
+    prerequisite: "Int 2"
+  },
+  {
+    id: "invasor-de-sistemas",
+    name: "Invasor de Sistemas",
+    classId: "Especialista",
+    description: "Você, de forma passiva, recebe +5 em testes de tecnologia para invasão e reduz o tempo de hack para uma ação completa.",
+    type: "passiva"
+  },
+  {
+    id: "maos-rapidas",
+    name: "Mãos Rápidas",
+    classId: "Especialista",
+    description: "Você gasta 1 PE para realizar testes de Crime como ação livre. Pré-requisitos: Agi 3.",
+    type: "ativa",
+    cost: "1 PE",
+    prerequisite: "Agi 3"
+  },
+  {
+    id: "na-trilha-certa",
+    name: "Na Trilha Certa",
+    classId: "Especialista",
+    description: "Você gasta 1 PE ao encontrar pistas para receber +1d20 no próximo teste, podendo acumular.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "nerd",
+    name: "Nerd",
+    classId: "Especialista",
+    description: "Você gasta 2 PE uma vez por cena para fazer um teste de Atualidades (DT 20) e receber uma informação útil.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "pensamento-agil",
+    name: "Pensamento Ágil",
+    classId: "Especialista",
+    description: "Você gasta 2 PE para realizar uma ação adicional de procurar pistas em investigação.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "perito-em-explosivos",
+    name: "Perito em Explosivos",
+    classId: "Especialista",
+    description: "Você, de forma passiva, soma Intelecto na DT dos seus explosivos e pode excluir alvos da área igual ao seu Intelecto.",
+    type: "passiva"
+  },
+  {
+    id: "carisma-inicial",
+    name: "Carisma Inicial",
+    classId: "Especialista",
+    description: "Você, de forma passiva, recebe +2d20 no primeiro teste social da cena.",
+    type: "passiva"
+  },
+  {
+    id: "treinamento-em-pericia-especialista",
+    name: "Treinamento em Perícia",
+    classId: "Especialista",
+    description: "Você, de forma passiva, se torna treinado em duas perícias, podendo evoluir com nível e repetir o talento.",
+    type: "passiva"
+  },
+  {
+    id: "camuflagem-social",
+    name: "Camuflagem Social",
+    classId: "Especialista",
+    description: "Você gasta 1 PE para se disfarçar rapidamente como ação completa sem kit, recebendo bônus se usar um.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "esconderijo-desesperado",
+    name: "Esconderijo Desesperado",
+    classId: "Especialista",
+    description: "Você, de forma passiva, não sofre penalidade por se mover furtivamente e reduz mais sua visibilidade ao se esconder.",
+    type: "passiva"
+  },
+  {
+    id: "especialista-diletante",
+    name: "Especialista Diletante",
+    classId: "Especialista",
+    description: "Você, de forma passiva, aprende um poder de outra classe que cumpra os pré-requisitos. Pré-requisito: Nível 6.",
+    type: "passiva",
+    prerequisite: "Nível 6"
+  },
+  {
+    id: "plano-de-fuga",
+    name: "Plano de Fuga",
+    classId: "Especialista",
+    description: "Você gasta 2 PE para substituir testes de fuga por sucesso automático ou usar Intelecto no lugar de Força em perseguições.",
+    type: "ativa",
+    cost: "2 PE"
   },
 
-  ocultista: {
-    name: "Ocultista",
-    generalAbilities: [
-      {
-        id: "o1",
-        name: "PACTO SOMBRIO",
-        description:
-          "Você fez um pacto com uma entidade paranormal. Você pode gastar 2 PE para receber +1d6 em um teste de Ocultismo.",
-        cost: "2 PE",
-      },
-      {
-        id: "o2",
-        name: "VISÃO PARANORMAL",
-        description:
-          "Você pode ver criaturas paranormais invisíveis para outros mortais. Você recebe vantagem em testes de Percepção para detectar criaturas paranormais.",
-      },
-      {
-        id: "o3",
-        name: "RITUAL APRIMORADO",
-        description:
-          "Você aprende a aprimorar seus rituais. Quando conjura um ritual, você pode gastar 1 PE adicional para aumentar a DT em +2.",
-        cost: "1+ PE",
-      },
-      {
-        id: "o4",
-        name: "CONHECIMENTO OCULTO",
-        description:
-          "Você tem conhecimento profundo sobre o mundo paranormal. Você recebe +2 em testes de Ocultismo.",
-      },
-      {
-        id: "o5",
-        name: "PROTEÇÃO PARANORMAL",
-        description:
-          "Você aprendeu a se proteger de ataques paranormais. Você recebe +2 em testes de resistência contra efeitos paranormais.",
-      },
-      {
-        id: "o6",
-        name: "CANALIZAÇÃO DE ENERGIA",
-        description:
-          "Você pode canalizar energia paranormal. Uma vez por cena, você pode gastar 3 PE para recuperar 1d8 de Sanidade.",
-        cost: "3 PE",
-      },
-      {
-        id: "o7",
-        name: "LIGAÇÃO COM O VAZIO",
-        description:
-          "Você estabeleceu uma ligação com o Vazio. Você pode gastar 1 ponto de Vazio para receber vantagem em um teste.",
-      },
-      {
-        id: "o8",
-        name: "MANIFESTAÇÃO ESPIRITUAL",
-        description:
-          "Você pode invocar espíritos para ajudá-lo. Uma vez por cena, você pode gastar 2 PE para invocar um espírito aliado.",
-        cost: "2 PE",
-      },
-    ],
-    paths: [
-      {
-        name: "Trilha do Vazio",
-        levels: [
-          {
-            level: 1,
-            abilities: [
-              {
-                id: "ov1-1",
-                name: "Domínio do Vazio - Nível 1",
-                description:
-                  "Você aprofunda sua ligação com o Vazio. Você pode gastar 1 ponto de Vazio para receber +1 em um teste.",
-              },
-            ],
-          },
-          {
-            level: 2,
-            abilities: [
-              {
-                id: "ov1-2",
-                name: "Domínio do Vazio - Nível 2",
-                description:
-                  "Você aprofunda sua ligação com o Vazio. Você pode gastar 1 ponto de Vazio para receber +2 em um teste.",
-              },
-            ],
-          },
-          {
-            level: 3,
-            abilities: [
-              {
-                id: "ov1-3",
-                name: "Domínio do Vazio - Nível 3",
-                description:
-                  "Você aprofunda sua ligação com o Vazio. Você pode gastar 1 ponto de Vazio para receber +3 em um teste.",
-              },
-            ],
-          },
-          {
-            level: 4,
-            abilities: [
-              {
-                id: "ov1-4",
-                name: "Domínio do Vazio - Nível 4",
-                description:
-                  "Você aprofunda sua ligação com o Vazio. Você pode gastar 1 ponto de Vazio para receber +4 em um teste.",
-              },
-            ],
-          },
-          {
-            level: 5,
-            abilities: [
-              {
-                id: "ov1-5",
-                name: "Domínio do Vazio - Nível 5",
-                description:
-                  "Você aprofunda sua ligação com o Vazio. Você pode gastar 1 ponto de Vazio para receber +5 em um teste.",
-              },
-            ],
-          },
-        ],
-      },
-      {
-        name: "Trilha Paranormal",
-        levels: [
-          {
-            level: 1,
-            abilities: [
-              {
-                id: "op1-1",
-                name: "Maestria Paranormal - Nível 1",
-                description:
-                  "Você se torna um mestre em lidar com o paranormal. Receba +1 em testes relacionados a criaturas paranormais.",
-              },
-            ],
-          },
-          {
-            level: 2,
-            abilities: [
-              {
-                id: "op1-2",
-                name: "Maestria Paranormal - Nível 2",
-                description:
-                  "Você se torna um mestre em lidar com o paranormal. Receba +2 em testes relacionados a criaturas paranormais.",
-              },
-            ],
-          },
-          {
-            level: 3,
-            abilities: [
-              {
-                id: "op1-3",
-                name: "Maestria Paranormal - Nível 3",
-                description:
-                  "Você se torna um mestre em lidar com o paranormal. Receba +3 em testes relacionados a criaturas paranormais.",
-              },
-            ],
-          },
-          {
-            level: 4,
-            abilities: [
-              {
-                id: "op1-4",
-                name: "Maestria Paranormal - Nível 4",
-                description:
-                  "Você se torna um mestre em lidar com o paranormal. Receba +4 em testes relacionados a criaturas paranormais.",
-              },
-            ],
-          },
-          {
-            level: 5,
-            abilities: [
-              {
-                id: "op1-5",
-                name: "Maestria Paranormal - Nível 5",
-                description:
-                  "Você se torna um mestre em lidar com o paranormal. Receba +5 em testes relacionados a criaturas paranormais.",
-              },
-            ],
-          },
-        ],
-      },
-    ],
+  // OCULTISTA
+  {
+    id: "aptidao-versatil",
+    name: "Aptidão Versátil",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao realizar um teste específico à sua escolha para receber +2 nesse teste, podendo usar esse talento apenas uma vez por teste, porém ele pode ser aplicado em qualquer tipo de teste.",
+    type: "ativa",
+    cost: "1 PE"
   },
-};
+  {
+    id: "treinamento-leve",
+    name: "Treinamento Leve",
+    classId: "Ocultista",
+    description: "Você, de forma passiva, pode utilizar armaduras de categoria leve sem necessidade de ação ou custo adicional de PE.",
+    type: "passiva"
+  },
+  {
+    id: "insight-analitico",
+    name: "Insight Analítico",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao realizar um teste que envolva suas capacidades mentais ou conhecimentos para adicionar 1d6 ao resultado.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "marca-do-fracasso",
+    name: "Marca do Fracasso",
+    classId: "Ocultista",
+    description: "Sempre que você errar um ataque ou um teste com intuito de ferir alguém, você pode, como reação e sem custo de PE, colocar essa pessoa na sua lista negra.",
+    type: "passiva"
+  },
+  {
+    id: "armazenamento-otimizado",
+    name: "Armazenamento Otimizado",
+    classId: "Ocultista",
+    description: "De forma passiva, itens feitos através da alquimia não ocupam espaço no inventário, porém ainda é necessário sacar eles normalmente.",
+    type: "passiva"
+  },
+  {
+    id: "fortaleza-mental",
+    name: "Fortaleza Mental",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao ser alvo de um teste contra sua sanidade para receber +2 no modificador e resistência 5 a dano de sanidade até o final da sua próxima rodada.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "intervencao-de-campo",
+    name: "Intervenção de Campo",
+    classId: "Ocultista",
+    description: "Você gasta 2 PE ao realizar um teste de medicina, podendo definir a DT como 10 e, a cada +5 na DT, adicionar 1d6 na cura (exemplo: DT 15 = 2d6), podendo remover a condição de morrendo.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "golpe-envenenado",
+    name: "Golpe Envenenado",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao aplicar veneno em sua arma e realizar um ataque no mesmo momento, adicionando 1d4 de dano de veneno ao dano principal, desde que não seja uma arma pesada no caso de precisão.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "maestria-em-armas-pesadas-ocultista",
+    name: "Maestria em Armas Pesadas",
+    classId: "Ocultista",
+    description: "De forma passiva, você pode utilizar armas de categoria pesada sem custo adicional.",
+    type: "passiva"
+  },
+  {
+    id: "vitalidade-ampliada",
+    name: "Vitalidade Ampliada",
+    classId: "Ocultista",
+    description: "De forma passiva, você adiciona +2 em qualquer efeito de cura e +1 em bônus de modificadores vindos de magias, talentos ou itens.",
+    type: "passiva"
+  },
+  {
+    id: "banquete-restaurador",
+    name: "Banquete Restaurador",
+    classId: "Ocultista",
+    description: "Durante um interlúdio, você pode cozinhar sem custo de PE para fazer todos recuperarem o dobro de PV ao descansar.",
+    type: "passiva"
+  },
+  {
+    id: "comando-tatico",
+    name: "Comando Tático",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE como reação ao ver um aliado falhar ou precisar de auxílio, permitindo que ele rerrole o dado, ficando com o novo resultado, desde que possa te ver ou ouvir.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "adaptacao-intelectual",
+    name: "Adaptação Intelectual",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE para alterar um dos seus traços até o final da cena.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "paradoxo-logico",
+    name: "Paradoxo Lógico",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE como reação ao passar em um teste de recordar conhecimento para impor desvantagem no próximo teste de uma criatura.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "eco-da-sorte",
+    name: "Eco da Sorte",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao auxiliar um aliado e, caso ele tenha sucesso, ganha 1 ponto de Sorte (PSO), podendo gastar PSO para receber +1d6 em testes, acumulando até 2.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "vantagem-inicial",
+    name: "Vantagem Inicial",
+    classId: "Ocultista",
+    description: "De forma passiva, uma de suas armas começa com uma modificação extra.",
+    type: "passiva"
+  },
+  {
+    id: "tenacidade-mental",
+    name: "Tenacidade Mental",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao ser alvo de efeitos contra sua sanidade para ganhar +1 no modificador e resistência 5 a dano de sanidade até o começo da sua próxima rodada.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "memoria-afiada",
+    name: "Memória Afiada",
+    classId: "Ocultista",
+    description: "De forma passiva, ao rolar 1d20 em testes de alquimia ou ciência e obter 19, o resultado se torna um crítico.",
+    type: "passiva"
+  },
+  {
+    id: "alquimia-em-combate",
+    name: "Alquimia em Combate",
+    classId: "Ocultista",
+    description: "Você gasta 2 PE ao criar um item de alquimia durante o combate, seguindo as regras normais de criação.",
+    type: "ativa",
+    cost: "2 PE"
+  },
+  {
+    id: "precisao-absoluta",
+    name: "Precisão Absoluta",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE como reação ao realizar um teste para ignorar um único defeito associado a ele.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "potencial-imprevisivel",
+    name: "Potencial Imprevisível",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao realizar uma ação de movimento para fazer um teste de ciência (DT 10 + seu nível) e adicionar metade do seu nível como modificador de dano em uma arma até o fim da cena.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "preparo-preventivo",
+    name: "Preparo Preventivo",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao declarar que comprou previamente um equipamento, pagando apenas o custo normal em créditos.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "catalisador-agressivo",
+    name: "Catalisador Agressivo",
+    classId: "Ocultista",
+    description: "De forma passiva, você soma +1d8 de dano em efeitos ofensivos de itens de alquimia.",
+    type: "passiva"
+  },
+  {
+    id: "calculo-balistico",
+    name: "Cálculo Balístico",
+    classId: "Ocultista",
+    description: "De forma passiva, sua DT para explosivos aumenta em +5 pelo resto da cena.",
+    type: "passiva"
+  },
+  {
+    id: "protecao-tatica",
+    name: "Proteção Tática",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE para anular efeitos de área de granadas ou itens de alquimia em aliados.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "engenharia-de-campo",
+    name: "Engenharia de Campo",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE durante um interlúdio para remover a condição quebrado de um item, arma ou cobertura, além de reduzir em 2 o custo de modificações de armas.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "maestria-pirotecnica",
+    name: "Maestria Pirotécnica",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao realizar uma ação de movimento para fazer com que suas próximas magias, explosivos ou itens de dano em área tenham o dano dobrado até o fim da sua próxima rodada.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "foco-arcano",
+    name: "Foco Arcano",
+    classId: "Ocultista",
+    description: "De forma passiva, você recebe +2 nas DTs de suas magias.",
+    type: "passiva"
+  },
+  {
+    id: "ampliacao-de-amuletos",
+    name: "Ampliação de Amuletos",
+    classId: "Ocultista",
+    description: "De forma passiva, você aumenta seu limite de amuletos em +1, podendo escolher esse talento múltiplas vezes até o máximo de +3.",
+    type: "passiva"
+  },
+  {
+    id: "barganha-alquimica",
+    name: "Barganha Alquímica",
+    classId: "Ocultista",
+    description: "Você gasta 1 PE ao comprar um ingrediente de alquimia para receber outro de mesmo valor gratuitamente durante essa compra.",
+    type: "ativa",
+    cost: "1 PE"
+  },
+  {
+    id: "sintonia-coletiva",
+    name: "Sintonia Coletiva",
+    classId: "Ocultista",
+    description: "Você gasta 2 PE durante um interlúdio ao realizar Canalização de Energia para conceder PE extra igual ao número de participantes, sendo +2 por Naturalista, podendo ser ativado apenas uma vez por interlúdio. Pré-requisito: acesso ao 2° círculo de magias.",
+    type: "ativa",
+    cost: "2 PE",
+    prerequisite: "acesso ao 2° círculo"
+  },
+];

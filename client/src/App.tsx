@@ -11,14 +11,24 @@ import { auth } from "./firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import Login from "./components/Login";
 import CharacterSheet from "./components/CharacterSheet";
+import MasterPanel from "./pages/MasterPanel";
+
+// UID do mestre (deve ser definido no .env)
+const MASTER_UID = import.meta.env.VITE_MASTER_UID;
 
 function AuthenticatedRouter({ user }: { user: User }) {
   const [, setLocation] = useLocation();
+  const isMaster = MASTER_UID && user.uid === MASTER_UID;
 
   return (
     <Switch>
       <Route path="/">
-        <Home user={user} onSelectCharacter={(id: string) => setLocation(`/sheet/${id}`)} />
+        <Home
+          user={user}
+          onSelectCharacter={(id: string) => setLocation(`/sheet/${id}`)}
+          isMaster={isMaster}
+          onGoToMasterPanel={() => setLocation("/mestre")}
+        />
       </Route>
       <Route path="/sheet/:characterId">
         {(params) => (
@@ -28,6 +38,14 @@ function AuthenticatedRouter({ user }: { user: User }) {
           />
         )}
       </Route>
+
+      {/* Rota do painel do mestre */}
+      {isMaster && (
+        <Route path="/mestre">
+          <MasterPanel onBack={() => setLocation("/")} />
+        </Route>
+      )}
+
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

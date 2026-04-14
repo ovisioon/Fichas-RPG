@@ -1,20 +1,58 @@
+// client/src/components/DefenseInventoryTab.tsx
 import React, { useState, useEffect } from "react";
-import { simpleWeapons, heavyWeapons, ammunition, protections, operationalItems } from "@/data/weapons";
-import { amulets, ingredients, potions } from "@/data/magic";
+import {
+  simpleWeapons,
+  heavyWeapons,
+  ammunition,
+  protections,
+  operationalItems,
+  paranormalItems,
+  explosives,
+  accessories,
+  Weapon,
+  Ammunition,
+  Protection,
+  OperationalItem,
+  ParanormalItem,
+  Explosive,
+  Accessory
+} from "@/data/weapons";
+import { amulets, ingredients, potions, Amulet, Ingredient, Potion } from "@/data/magic";
+import { Plus, Trash2, X } from "lucide-react";
 
-interface SelectedWeapon {
-  id: string;
-  name: string;
-  category: string;
-  spaces: number;
-  damage: string;
-  critical: string;
-  range?: string;
-  damageType: string;
-  modification?: string;
+// Tipos para itens selecionados
+interface SelectedWeapon extends Weapon {
+  instanceId: string;
+}
+
+interface SelectedAmmunition extends Ammunition {
+  instanceId: string;
+  quantity: number;
+}
+
+interface SelectedProtection extends Protection {
+  instanceId: string;
+}
+
+interface SelectedOperationalItem extends OperationalItem {
+  instanceId: string;
+}
+
+interface SelectedParanormalItem extends ParanormalItem {
+  instanceId: string;
+}
+
+interface SelectedExplosive extends Explosive {
+  instanceId: string;
+  quantity: number;
+}
+
+interface SelectedAccessory extends Accessory {
+  instanceId: string;
 }
 
 interface SelectedMagicItem {
+  instanceId: string;
   id: string;
   name: string;
   type: "amulet" | "ingredient" | "potion";
@@ -32,604 +70,364 @@ interface DefenseInventoryTabProps {
   themeColor?: string;
 }
 
-export default function DefenseInventoryTab({ 
-  characterData, 
-  initialData, 
-  onUpdate, 
-  themeColor = "#4ADE80" 
+export default function DefenseInventoryTab({
+  characterData,
+  initialData,
+  onUpdate,
+  themeColor = "#4ADE80"
 }: DefenseInventoryTabProps) {
-  const [selectedWeapons, setSelectedWeapons] = useState<SelectedWeapon[]>(initialData?.weapons || []);
-  const [weaponModifications, setWeaponModifications] = useState<Record<string, string>>(initialData?.weaponModifications || {});
-  const [selectedProtection, setSelectedProtection] = useState<string | null>(initialData?.protection || null);
+  // Estados para cada categoria
+  const [weapons, setWeapons] = useState<SelectedWeapon[]>(initialData?.weapons || []);
+  const [ammunitions, setAmmunitions] = useState<SelectedAmmunition[]>(initialData?.ammunitions || []);
+  const [protectionsList, setProtectionsList] = useState<SelectedProtection[]>(initialData?.protections || []);
+  const [operationals, setOperationals] = useState<SelectedOperationalItem[]>(initialData?.operationals || []);
+  const [paranormals, setParanormals] = useState<SelectedParanormalItem[]>(initialData?.paranormals || []);
+  const [explosivesList, setExplosivesList] = useState<SelectedExplosive[]>(initialData?.explosives || []);
+  const [accessoriesList, setAccessoriesList] = useState<SelectedAccessory[]>(initialData?.accessories || []);
+  const [magicItems, setMagicItems] = useState<SelectedMagicItem[]>(initialData?.magicItems || []);
+
+  // Estados de UI
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [magicTab, setMagicTab] = useState<"amulet" | "ingredient" | "potion">("amulet");
+
+  // Defesas calculadas
   const [passiveDefense, setPassiveDefense] = useState(initialData?.passiveDefense || 10);
   const [dodgeDefense, setDodgeDefense] = useState(initialData?.dodgeDefense || 10);
-  const [editablePassive, setEditablePassive] = useState(false);
   const [editableDodge, setEditableDodge] = useState(false);
   const [reflexBonus, setReflexBonus] = useState(initialData?.reflexBonus || 0);
   const [resistances, setResistances] = useState<Record<string, number>>(initialData?.resistances || {});
   const [proficiencies, setProficiencies] = useState<string[]>(initialData?.proficiencies || []);
-  const [totalSpaces, setTotalSpaces] = useState(0);
-  const [showWeaponModal, setShowWeaponModal] = useState(false);
-  const [showProtectionModal, setShowProtectionModal] = useState(false);
-  const [selectedMagicItems, setSelectedMagicItems] = useState<SelectedMagicItem[]>(initialData?.magicItems || []);
-  const [showMagicModal, setShowMagicModal] = useState(false);
-  const [magicTab, setMagicTab] = useState<"amulet" | "ingredient" | "potion">("amulet");
-  const [customMagicName, setCustomMagicName] = useState("");
-  const [customMagicEffect, setCustomMagicEffect] = useState("");
 
-  // Sincronizar com o pai sempre que algo mudar
+  // Efeito para sincronizar com o componente pai
   useEffect(() => {
     onUpdate({
-      weapons: selectedWeapons,
-      protection: selectedProtection,
+      weapons,
+      ammunitions,
+      protections: protectionsList,
+      operationals,
+      paranormals,
+      explosives: explosivesList,
+      accessories: accessoriesList,
+      magicItems,
       passiveDefense,
       dodgeDefense,
-      resistances,
-      proficiencies,
-      magicItems: selectedMagicItems,
       reflexBonus,
-      weaponModifications
+      resistances,
+      proficiencies
     });
-  }, [selectedWeapons, selectedProtection, passiveDefense, dodgeDefense, resistances, proficiencies, selectedMagicItems, reflexBonus, weaponModifications]);
+  }, [weapons, ammunitions, protectionsList, operationals, paranormals, explosivesList, accessoriesList, magicItems, passiveDefense, dodgeDefense, reflexBonus, resistances, proficiencies]);
 
-  // Cálculo automático de Passiva: 10 + Destreza (apenas na primeira renderização ou quando destreza muda)
-  React.useEffect(() => {
-    if (!editablePassive && !initialData?.passiveDefense) {
-      const dexterity = characterData.attributes.destreza || 0;
-      setPassiveDefense(10 + dexterity);
+  // Cálculo automático de defesas
+  useEffect(() => {
+    // Passiva: 10 + Destreza (se não foi carregada do initialData)
+    if (!initialData?.passiveDefense) {
+      const dex = characterData.attributes.destreza || 0;
+      setPassiveDefense(10 + dex);
     }
-  }, [characterData.attributes.destreza])
+  }, [characterData.attributes.destreza, initialData]);
 
-  // Cálculo automático de Esquiva: 10 + Destreza + Reflexo + proteção (apenas quando dependências reais mudam)
-  React.useEffect(() => {
+  useEffect(() => {
+    // Se o usuário não está editando manualmente, recalcula Esquiva com bônus de proteção
     if (!editableDodge) {
-      const dexterity = characterData.attributes.destreza || 0;
-      const protectionBonus = selectedProtection
-        ? protections.find((p) => p.id === selectedProtection)?.defense || 0
-        : 0;
-      setDodgeDefense(10 + dexterity + reflexBonus + protectionBonus);
+      const dex = characterData.attributes.destreza || 0;
+      const basePassive = 10 + dex;
+      
+      // Soma os bônus de defesa de todas as proteções equipadas
+      const protectionBonus = protectionsList.reduce((sum, prot) => sum + (prot.defense || 0), 0);
+      
+      // Escudo concede +2 (se não estiver incluso no defense do item)
+      const hasShield = protectionsList.some(p => p.id === "escudo");
+      const shieldBonus = hasShield ? 2 : 0;
+      
+      const calculatedDodge = basePassive + reflexBonus + protectionBonus + shieldBonus;
+      setDodgeDefense(calculatedDodge);
     }
-  }, [characterData.attributes.destreza, reflexBonus, selectedProtection])
+  }, [characterData.attributes.destreza, reflexBonus, protectionsList, editableDodge]);
 
-  // Cálculo de espaços totais
-  React.useEffect(() => {
-    const weaponsSpaces = selectedWeapons.reduce((sum, w) => sum + w.spaces, 0);
-    const protectionSpaces = selectedProtection
-      ? protections.find((p) => p.id === selectedProtection)?.spaces || 0
-      : 0;
-    setTotalSpaces(weaponsSpaces + protectionSpaces);
-  }, [selectedWeapons, selectedProtection]);
-
-  const handleAddWeapon = (weapon: any) => {
-    const newWeapon: SelectedWeapon = {
-      id: weapon.id,
-      name: weapon.name,
-      category: weapon.category,
-      spaces: weapon.spaces,
-      damage: weapon.damage,
-      critical: weapon.critical,
-      range: weapon.range,
-      damageType: weapon.damageType,
-    };
-    setSelectedWeapons([...selectedWeapons, newWeapon]);
+  // Funções para adicionar itens (geram instanceId único)
+  const addWeapon = (weapon: Weapon) => {
+    setWeapons([...weapons, { ...weapon, instanceId: `w-${Date.now()}-${Math.random()}` }]);
   };
 
-  const handleRemoveWeapon = (id: string) => {
-    setSelectedWeapons(selectedWeapons.filter((w) => w.id !== id));
+  const addAmmunition = (ammo: Ammunition) => {
+    setAmmunitions([...ammunitions, { ...ammo, instanceId: `a-${Date.now()}-${Math.random()}`, quantity: 1 }]);
   };
 
-  const handleAddProtection = (protectionId: string) => {
-    setSelectedProtection(protectionId);
-    setShowProtectionModal(false);
+  const addProtection = (prot: Protection) => {
+    // Por simplicidade, permitimos apenas uma proteção por vez (substitui)
+    // Se quiser acumular várias, basta mudar para push.
+    setProtectionsList([{ ...prot, instanceId: `p-${Date.now()}-${Math.random()}` }]);
   };
 
-  const handleRemoveProtection = () => {
-    setSelectedProtection(null);
+  const addOperational = (item: OperationalItem) => {
+    setOperationals([...operationals, { ...item, instanceId: `o-${Date.now()}-${Math.random()}` }]);
   };
 
-  const handleToggleProficiency = (proficiency: string) => {
-    if (proficiencies.includes(proficiency)) {
-      setProficiencies(proficiencies.filter((p) => p !== proficiency));
-    } else {
-      setProficiencies([...proficiencies, proficiency]);
-    }
+  const addParanormal = (item: ParanormalItem) => {
+    setParanormals([...paranormals, { ...item, instanceId: `pn-${Date.now()}-${Math.random()}` }]);
   };
 
-  const handleRemoveProficiency = (proficiency: string) => {
-    setProficiencies(proficiencies.filter((p) => p !== proficiency));
+  const addExplosive = (exp: Explosive) => {
+    setExplosivesList([...explosivesList, { ...exp, instanceId: `e-${Date.now()}-${Math.random()}`, quantity: 1 }]);
   };
 
-  const handleAddResistance = (type: string) => {
-    setResistances({
-      ...resistances,
-      [type]: (resistances[type] || 0) + 1,
-    });
+  const addAccessory = (acc: Accessory) => {
+    setAccessoriesList([...accessoriesList, { ...acc, instanceId: `ac-${Date.now()}-${Math.random()}` }]);
   };
 
-  const handleRemoveResistance = (type: string) => {
-    const newResistances = { ...resistances };
-    delete newResistances[type];
-    setResistances(newResistances);
-  };
-
-  const handleAddMagicItem = (item: any) => {
+  const addMagicItem = (item: Amulet | Ingredient | Potion, type: "amulet" | "ingredient" | "potion") => {
     const newItem: SelectedMagicItem = {
+      instanceId: `m-${Date.now()}-${Math.random()}`,
       id: item.id,
       name: item.name,
-      type: item.type,
+      type,
       description: item.description,
       effect: item.effect,
-      quantity: item.quantity || 1,
+      quantity: (item as any).quantity || 1
     };
-    setSelectedMagicItems([...selectedMagicItems, newItem]);
+    setMagicItems([...magicItems, newItem]);
   };
 
-  const handleRemoveMagicItem = (id: string) => {
-    setSelectedMagicItems(selectedMagicItems.filter((item) => item.id !== id));
+  // Funções de remoção
+  const removeWeapon = (instanceId: string) => setWeapons(weapons.filter(w => w.instanceId !== instanceId));
+  const removeAmmunition = (instanceId: string) => setAmmunitions(ammunitions.filter(a => a.instanceId !== instanceId));
+  const removeProtection = (instanceId: string) => {
+    setProtectionsList(protectionsList.filter(p => p.instanceId !== instanceId));
+    // Ao remover proteção, se o usuário não estiver editando manualmente, o cálculo automático já atualizará
   };
+  const removeOperational = (instanceId: string) => setOperationals(operationals.filter(o => o.instanceId !== instanceId));
+  const removeParanormal = (instanceId: string) => setParanormals(paranormals.filter(p => p.instanceId !== instanceId));
+  const removeExplosive = (instanceId: string) => setExplosivesList(explosivesList.filter(e => e.instanceId !== instanceId));
+  const removeAccessory = (instanceId: string) => setAccessoriesList(accessoriesList.filter(a => a.instanceId !== instanceId));
+  const removeMagicItem = (instanceId: string) => setMagicItems(magicItems.filter(m => m.instanceId !== instanceId));
 
-  const handleAddCustomMagic = () => {
-    if (customMagicName.trim() && customMagicEffect.trim()) {
-      const newItem: SelectedMagicItem = {
-        id: `custom-${Date.now()}`,
-        name: customMagicName,
-        type: magicTab,
-        description: "Item customizado",
-        effect: customMagicEffect,
-      };
-      setSelectedMagicItems([...selectedMagicItems, newItem]);
-      setCustomMagicName("");
-      setCustomMagicEffect("");
-    }
-  };
-
+  // Resistências e Proficiências
   const resistanceTypes = ["Balístico", "Corte", "Impacto", "Perfuração", "Fogo", "Frio", "Elétrico"];
   const proficiencyOptions = ["Armas Simples", "Armas Táticas", "Proteções Leves", "Proteções Pesadas"];
 
-  const getMagicItemsByType = (type: "amulet" | "ingredient" | "potion") => {
-    if (type === "amulet") return amulets;
-    if (type === "ingredient") return ingredients;
-    return potions;
+  const toggleResistance = (type: string) => {
+    setResistances(prev => {
+      const newRes = { ...prev };
+      if (newRes[type]) delete newRes[type];
+      else newRes[type] = 5;
+      return newRes;
+    });
   };
 
+  const toggleProficiency = (prof: string) => {
+    setProficiencies(prev => prev.includes(prof) ? prev.filter(p => p !== prof) : [...prev, prof]);
+  };
+
+  // Renderização de cada seção
+  const renderSection = (title: string, items: any[], onAdd: () => void, renderItem: (item: any) => React.ReactNode, color: string = themeColor) => (
+    <div style={{ marginBottom: "20px", border: `1px solid ${color}`, borderRadius: "8px", padding: "15px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+        <h3 style={{ color, fontSize: "1rem", margin: 0 }}>{title} ({items.length})</h3>
+        <button onClick={onAdd} style={{ backgroundColor: color, color: "#000", border: "none", padding: "5px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "0.8rem", fontWeight: "bold" }}>+ Adicionar</button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        {items.length === 0 && <p style={{ color: "#666", fontSize: "0.8rem", margin: 0 }}>Nenhum item</p>}
+        {items.map(item => renderItem(item))}
+      </div>
+    </div>
+  );
+
+  // Modal genérico
+  const renderModal = (title: string, items: any[], onSelect: (item: any) => void, onClose: () => void, renderItem?: (item: any) => React.ReactNode) => (
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" }}>
+      <div style={{ backgroundColor: "#111", border: `2px solid ${themeColor}`, borderRadius: "12px", width: "100%", maxWidth: "500px", maxHeight: "70vh", overflowY: "auto", padding: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px" }}>
+          <h3 style={{ color: themeColor, margin: 0 }}>{title}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#666", cursor: "pointer" }}><X size={20} /></button>
+        </div>
+        <div style={{ display: "grid", gap: "8px" }}>
+          {items.map(item => (
+            <div key={item.id} onClick={() => { onSelect(item); onClose(); }} style={{ padding: "10px", backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "4px", cursor: "pointer" }}>
+              {renderItem ? renderItem(item) : (
+                <>
+                  <div style={{ color: themeColor, fontWeight: "bold", fontSize: "0.9rem" }}>{item.name}</div>
+                  <div style={{ fontSize: "0.75rem", color: "#666" }}>{item.effect || item.description}</div>
+                </>
+              )}
+            </div>
+          ))}
+          {/* Opção para remover proteção (apenas no modal de proteções) */}
+          {title === "Proteções" && protectionsList.length > 0 && (
+            <div 
+              onClick={() => { setProtectionsList([]); onClose(); }} 
+              style={{ padding: "10px", backgroundColor: "#1A1A1A", border: "1px solid #EF4444", borderRadius: "4px", cursor: "pointer", textAlign: "center", color: "#EF4444", marginTop: "8px" }}
+            >
+              Nenhuma (remover proteção)
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ padding: "20px", color: "#E0E0E0", fontFamily: "'Rajdhani', sans-serif" }}>
-      <h2 style={{ color: themeColor, fontFamily: "'Bebas Neue', cursive", fontSize: "1.5rem", marginBottom: "20px" }}>
-        DEFESA E INVENTÁRIO
-      </h2>
+    <div style={{ padding: "10px", color: "#E0E0E0", fontFamily: "'Rajdhani', sans-serif" }}>
+      <h2 style={{ color: themeColor, fontSize: "1.3rem", marginBottom: "15px" }}>DEFESA & INVENTÁRIO</h2>
 
       {/* Especificações */}
-      <div style={{ marginBottom: "30px", padding: "15px", border: "2px solid #4ADE80", borderRadius: "8px" }}>
-        <h3 style={{ color: themeColor, marginBottom: "15px" }}>ESPECIFICAÇÕES</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "clamp(1fr, 100%, 1fr 1fr)", gap: "clamp(10px, 5vw, 20px)", marginBottom: "15px" }}>
+      <div style={{ backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "8px", padding: "15px", marginBottom: "20px" }}>
+        <h3 style={{ color: themeColor, fontSize: "0.9rem", marginBottom: "10px" }}>ESPECIFICAÇÕES</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "15px" }}>
           <div>
-            <div style={{ color: "#B0B0B0", fontSize: "0.9rem", marginBottom: "5px" }}>Passiva (10 + Destreza)</div>
-            {editablePassive ? (
-              <input
-                type="number"
-                value={passiveDefense}
-                onChange={(e) => setPassiveDefense(Number(e.target.value))}
-                onBlur={() => setEditablePassive(false)}
-                style={{
-                  padding: "8px",
-                  backgroundColor: "#2A2A2A",
-                  border: "2px solid #4ADE80",
-                  color: themeColor,
-                  borderRadius: "4px",
-                  fontSize: "1.5rem",
-                  fontWeight: "bold",
-                  width: "100%",
-                }}
-                autoFocus
-              />
-            ) : (
-              <div
-                onClick={() => setEditablePassive(true)}
-                style={{ color: themeColor, fontSize: "1.5rem", fontWeight: "bold", cursor: "pointer" }}
-              >
-                {passiveDefense}
-              </div>
-            )}
+            <div style={{ color: "#666", fontSize: "0.7rem" }}>Passiva (10 + Destreza)</div>
+            <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: themeColor }}>{passiveDefense}</div>
           </div>
           <div>
-            <div style={{ color: "#B0B0B0", fontSize: "0.9rem", marginBottom: "5px" }}>Esquiva (10 + Destreza + Reflexo + Proteção)</div>
+            <div style={{ color: "#666", fontSize: "0.7rem" }}>Esquiva (Passiva + Reflexo + Proteção)</div>
             {editableDodge ? (
               <input
                 type="number"
                 value={dodgeDefense}
-                onChange={(e) => setDodgeDefense(Number(e.target.value))}
+                onChange={(e) => setDodgeDefense(parseInt(e.target.value) || 0)}
                 onBlur={() => setEditableDodge(false)}
-                style={{
-                  padding: "8px",
-                  backgroundColor: "#2A2A2A",
-                  border: "2px solid #4ADE80",
-                  color: themeColor,
-                  borderRadius: "4px",
-                  fontSize: "1.5rem",
-                  fontWeight: "bold",
-                  width: "100%",
-                }}
                 autoFocus
+                style={{ width: "80px", background: "#050505", border: "1px solid #333", color: "#fff", padding: "5px", borderRadius: "4px", fontSize: "1.5rem", fontWeight: "bold" }}
               />
             ) : (
-              <div
-                onClick={() => setEditableDodge(true)}
-                style={{ color: themeColor, fontSize: "1.5rem", fontWeight: "bold", cursor: "pointer" }}
-              >
+              <div onClick={() => setEditableDodge(true)} style={{ fontSize: "1.5rem", fontWeight: "bold", color: themeColor, cursor: "pointer" }}>
                 {dodgeDefense}
               </div>
             )}
           </div>
-        </div>
-        <div>
-          <label style={{ color: "#B0B0B0", fontSize: "0.9rem", marginRight: "10px" }}>Bônus de Reflexo:</label>
-          <input
-            type="number"
-            value={reflexBonus}
-            onChange={(e) => setReflexBonus(Number(e.target.value))}
-            style={{
-              padding: "5px",
-              backgroundColor: "#2A2A2A",
-              border: "1px solid #4ADE80",
-              color: themeColor,
-              borderRadius: "4px",
-              width: "80px",
-            }}
-          />
+          <div>
+            <div style={{ color: "#666", fontSize: "0.7rem" }}>Bônus de Reflexo</div>
+            <input type="number" value={reflexBonus} onChange={e => setReflexBonus(parseInt(e.target.value) || 0)} style={{ width: "60px", background: "#050505", border: "1px solid #333", color: "#fff", padding: "5px", borderRadius: "4px" }} />
+          </div>
         </div>
       </div>
 
       {/* Resistências */}
-      <div style={{ marginBottom: "30px", padding: "15px", border: "2px solid #4ADE80", borderRadius: "8px" }}>
-        <h3 style={{ color: themeColor, marginBottom: "15px" }}>RESISTÊNCIAS</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(clamp(120px, 100%, 150px), 1fr))", gap: "clamp(8px, 3vw, 10px)" }}>
-          {resistanceTypes.map((type) => (
-            <div key={type} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <button
-                onClick={() => handleAddResistance(type)}
-                style={{
-                  flex: 1,
-                  padding: "10px",
-                  backgroundColor: resistances[type] ? themeColor : "#2A2A2A",
-                  border: "1px solid #4ADE80",
-                  color: resistances[type] ? "#000" : themeColor,
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                  fontSize: "0.8rem",
-                }}
-              >
-                {type}
-              </button>
-              {resistances[type] && (
-                <button
-                  onClick={() => handleRemoveResistance(type)}
-                  style={{
-                    padding: "5px 10px",
-                    backgroundColor: "transparent",
-                    border: "1px solid #EF4444",
-                    color: "#EF4444",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+      <div style={{ marginBottom: "20px" }}>
+        <h3 style={{ color: themeColor, fontSize: "0.9rem", marginBottom: "10px" }}>RESISTÊNCIAS</h3>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+          {resistanceTypes.map(type => (
+            <button key={type} onClick={() => toggleResistance(type)} style={{ padding: "6px 12px", backgroundColor: resistances[type] ? themeColor : "#1A1A1A", color: resistances[type] ? "#000" : "#666", border: `1px solid ${resistances[type] ? themeColor : "#333"}`, borderRadius: "4px", cursor: "pointer", fontSize: "0.8rem", fontWeight: "bold" }}>{type}</button>
           ))}
         </div>
       </div>
 
       {/* Proficiências */}
-      <div style={{ marginBottom: "30px", padding: "15px", border: "2px solid #4ADE80", borderRadius: "8px" }}>
-        <h3 style={{ color: themeColor, marginBottom: "15px" }}>PROFICIÊNCIAS</h3>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-          {proficiencyOptions.map((prof) => (
-            <button
-              key={prof}
-              onClick={() => handleToggleProficiency(prof)}
-              style={{
-                padding: "8px 15px",
-                backgroundColor: proficiencies.includes(prof) ? themeColor : "#2A2A2A",
-                color: proficiencies.includes(prof) ? "#000" : themeColor,
-                border: `1px solid ${themeColor}`,
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "0.8rem",
-                fontWeight: "bold",
-              }}
-            >
-              {prof}
-            </button>
+      <div style={{ marginBottom: "20px" }}>
+        <h3 style={{ color: themeColor, fontSize: "0.9rem", marginBottom: "10px" }}>PROFICIÊNCIAS</h3>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+          {proficiencyOptions.map(prof => (
+            <button key={prof} onClick={() => toggleProficiency(prof)} style={{ padding: "6px 12px", backgroundColor: proficiencies.includes(prof) ? themeColor : "#1A1A1A", color: proficiencies.includes(prof) ? "#000" : "#666", border: `1px solid ${proficiencies.includes(prof) ? themeColor : "#333"}`, borderRadius: "4px", cursor: "pointer", fontSize: "0.8rem", fontWeight: "bold" }}>{prof}</button>
           ))}
         </div>
       </div>
 
-      {/* Armas */}
-      <div style={{ marginBottom: "30px", padding: "15px", border: "2px solid #4ADE80", borderRadius: "8px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-          <h3 style={{ color: themeColor, fontSize: "1rem" }}>ARMAS SELECIONADAS ({selectedWeapons.length})</h3>
-          <button 
-            onClick={() => setShowWeaponModal(true)} 
-            style={{ 
-              backgroundColor: themeColor, 
-              color: "#000", 
-              border: "none", 
-              padding: "8px 15px", 
-              borderRadius: "4px", 
-              cursor: "pointer", 
-              fontSize: "0.8rem", 
-              fontWeight: "bold" 
-            }}
-          >
-            + ADICIONAR ARMA
-          </button>
+      {/* Seções de itens */}
+      {renderSection("ARMAS SIMPLES", weapons.filter(w => simpleWeapons.some(sw => sw.id === w.id)), () => setActiveModal("simpleWeapons"), (w: SelectedWeapon) => (
+        <div key={w.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: themeColor, fontWeight: "bold" }}>{w.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>{w.damage} | {w.critical}</span></div>
+          <button onClick={() => removeWeapon(w.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
         </div>
-        <div style={{ display: "grid", gap: "10px" }}>
-          {selectedWeapons.length === 0 && <p style={{ color: "#666", fontSize: "0.8rem" }}>Nenhuma arma selecionada</p>}
-          {selectedWeapons.map(weapon => (
-            <div key={weapon.id} style={{ backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "6px", padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ color: themeColor, fontWeight: "bold", fontSize: "0.9rem" }}>{weapon.name}</div>
-                <div style={{ color: "#666", fontSize: "0.75rem" }}>Dano: {weapon.damage} | Crítico: {weapon.critical}</div>
-              </div>
-              <button 
-                onClick={() => handleRemoveWeapon(weapon.id)} 
-                style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "1.2rem" }}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+      ))}
 
-      {/* Proteção */}
-      <div style={{ marginBottom: "30px", padding: "15px", border: "2px solid #4ADE80", borderRadius: "8px" }}>
-        <h3 style={{ color: themeColor, fontSize: "1rem", marginBottom: "15px" }}>PROTEÇÃO</h3>
-        <div 
-          onClick={() => setShowProtectionModal(true)}
-          style={{ 
-            backgroundColor: "#1A1A1A", 
-            border: "1px solid #333", 
-            borderRadius: "6px", 
-            padding: "15px", 
-            cursor: "pointer", 
-            textAlign: "center", 
-            color: selectedProtection ? themeColor : "#666" 
-          }}
-        >
-          {selectedProtection ? protections.find(p => p.id === selectedProtection)?.name : "+ Selecionar Proteção"}
+      {renderSection("ARMAS PESADAS / TÁTICAS", weapons.filter(w => heavyWeapons.some(hw => hw.id === w.id)), () => setActiveModal("heavyWeapons"), (w: SelectedWeapon) => (
+        <div key={w.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: themeColor, fontWeight: "bold" }}>{w.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>{w.damage} | {w.critical}</span></div>
+          <button onClick={() => removeWeapon(w.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
         </div>
-      </div>
+      ))}
 
-      {/* Itens Mágicos */}
-      <div style={{ marginBottom: "30px", padding: "15px", border: "2px solid #A855F7", borderRadius: "8px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-          <h3 style={{ color: "#A855F7", fontSize: "1rem" }}>INVENTÁRIO MÁGICO ({selectedMagicItems.length})</h3>
-          <button 
-            onClick={() => setShowMagicModal(true)} 
-            style={{ 
-              backgroundColor: "#A855F7", 
-              color: "#fff", 
-              border: "none", 
-              padding: "8px 15px", 
-              borderRadius: "4px", 
-              cursor: "pointer", 
-              fontSize: "0.8rem", 
-              fontWeight: "bold" 
-            }}
-          >
-            + Adicionar Item
-          </button>
+      {renderSection("MUNIÇÕES", ammunitions, () => setActiveModal("ammunition"), (a: SelectedAmmunition) => (
+        <div key={a.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: "#FBBF24", fontWeight: "bold" }}>{a.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>{a.description}</span></div>
+          <button onClick={() => removeAmmunition(a.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
         </div>
-        <div style={{ display: "grid", gap: "10px" }}>
-          {selectedMagicItems.length === 0 && <p style={{ color: "#666", fontSize: "0.8rem" }}>Nenhum item mágico selecionado</p>}
-          {selectedMagicItems.map(item => (
-            <div key={item.id} style={{ backgroundColor: "#1A1A1A", border: "1px solid #A855F7", borderRadius: "6px", padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ color: "#A855F7", fontWeight: "bold", fontSize: "0.9rem" }}>{item.name}</div>
-                <div style={{ color: "#666", fontSize: "0.75rem" }}>{item.effect}</div>
-              </div>
-              <button 
-                onClick={() => handleRemoveMagicItem(item.id)} 
-                style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: "1.2rem" }}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+      ), "#FBBF24")}
 
-      {/* Modal de Armas */}
-      {showWeaponModal && (
+      {renderSection("PROTEÇÕES", protectionsList, () => setActiveModal("protections"), (p: SelectedProtection) => (
+        <div key={p.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: "#3B82F6", fontWeight: "bold" }}>{p.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>Defesa +{p.defense}</span></div>
+          <button onClick={() => removeProtection(p.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
+        </div>
+      ), "#3B82F6")}
+
+      {renderSection("ITENS OPERACIONAIS", operationals, () => setActiveModal("operational"), (o: SelectedOperationalItem) => (
+        <div key={o.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: "#10B981", fontWeight: "bold" }}>{o.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>{o.effect || o.description}</span></div>
+          <button onClick={() => removeOperational(o.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
+        </div>
+      ), "#10B981")}
+
+      {renderSection("ITENS PARANORMAIS", paranormals, () => setActiveModal("paranormal"), (p: SelectedParanormalItem) => (
+        <div key={p.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: "#A855F7", fontWeight: "bold" }}>{p.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>{p.effect || p.description}</span></div>
+          <button onClick={() => removeParanormal(p.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
+        </div>
+      ), "#A855F7")}
+
+      {renderSection("EXPLOSIVOS", explosivesList, () => setActiveModal("explosives"), (e: SelectedExplosive) => (
+        <div key={e.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: "#EF4444", fontWeight: "bold" }}>{e.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>{e.damage || e.effect}</span></div>
+          <button onClick={() => removeExplosive(e.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
+        </div>
+      ), "#EF4444")}
+
+      {renderSection("ACESSÓRIOS", accessoriesList, () => setActiveModal("accessories"), (a: SelectedAccessory) => (
+        <div key={a.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: "#EC4899", fontWeight: "bold" }}>{a.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>{a.effect}</span></div>
+          <button onClick={() => removeAccessory(a.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
+        </div>
+      ), "#EC4899")}
+
+      {renderSection("ITENS MÁGICOS", magicItems, () => setActiveModal("magic"), (m: SelectedMagicItem) => (
+        <div key={m.instanceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px", backgroundColor: "#111", borderRadius: "4px" }}>
+          <div><span style={{ color: "#C084FC", fontWeight: "bold" }}>{m.name}</span> <span style={{ fontSize: "0.75rem", color: "#888" }}>{m.effect}</span></div>
+          <button onClick={() => removeMagicItem(m.instanceId)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer" }}><Trash2 size={14} /></button>
+        </div>
+      ), "#C084FC")}
+
+      {/* Modais */}
+      {activeModal === "simpleWeapons" && renderModal("Armas Simples", simpleWeapons, addWeapon, () => setActiveModal(null))}
+      {activeModal === "heavyWeapons" && renderModal("Armas Pesadas", heavyWeapons, addWeapon, () => setActiveModal(null))}
+      {activeModal === "ammunition" && renderModal("Munições", ammunition, addAmmunition, () => setActiveModal(null))}
+      {activeModal === "protections" && renderModal("Proteções", protections, addProtection, () => setActiveModal(null))}
+      {activeModal === "operational" && renderModal("Itens Operacionais", operationalItems, addOperational, () => setActiveModal(null))}
+      {activeModal === "paranormal" && renderModal("Itens Paranormais", paranormalItems, addParanormal, () => setActiveModal(null))}
+      {activeModal === "explosives" && renderModal("Explosivos", explosives, addExplosive, () => setActiveModal(null))}
+      {activeModal === "accessories" && renderModal("Acessórios", accessories, addAccessory, () => setActiveModal(null))}
+      {activeModal === "magic" && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" }}>
-          <div style={{ backgroundColor: "#111", border: `2px solid ${themeColor}`, borderRadius: "12px", width: "100%", maxWidth: "600px", maxHeight: "80vh", overflowY: "auto", padding: "25px", position: "relative" }}>
-            <button 
-              onClick={() => setShowWeaponModal(false)} 
-              style={{ position: "absolute", top: "15px", right: "15px", background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: "1.5rem" }}
-            >
-              ✕
-            </button>
-            <h2 style={{ color: themeColor, marginBottom: "20px" }}>SELECIONAR ARMA</h2>
-            
-            <div style={{ marginBottom: "20px" }}>
-              <h3 style={{ color: themeColor, marginBottom: "10px" }}>Armas Simples</h3>
-              <div style={{ display: "grid", gap: "10px" }}>
-                {simpleWeapons.map(weapon => (
-                  <div 
-                    key={weapon.id}
-                    onClick={() => { handleAddWeapon(weapon); setShowWeaponModal(false); }}
-                    style={{ padding: "12px", backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "6px", cursor: "pointer" }}
-                  >
-                    <div style={{ color: themeColor, fontWeight: "bold" }}>{weapon.name}</div>
-                    <div style={{ color: "#666", fontSize: "0.8rem" }}>Dano: {weapon.damage}</div>
-                  </div>
-                ))}
-              </div>
+          <div style={{ backgroundColor: "#111", border: "2px solid #C084FC", borderRadius: "12px", width: "100%", maxWidth: "500px", maxHeight: "70vh", overflowY: "auto", padding: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px" }}>
+              <h3 style={{ color: "#C084FC", margin: 0 }}>Itens Mágicos</h3>
+              <button onClick={() => setActiveModal(null)} style={{ background: "none", border: "none", color: "#666", cursor: "pointer" }}><X size={20} /></button>
             </div>
-
-            <div style={{ marginBottom: "20px" }}>
-              <h3 style={{ color: themeColor, marginBottom: "10px" }}>Armas Pesadas</h3>
-              <div style={{ display: "grid", gap: "10px" }}>
-                {heavyWeapons.map(weapon => (
-                  <div 
-                    key={weapon.id}
-                    onClick={() => { handleAddWeapon(weapon); setShowWeaponModal(false); }}
-                    style={{ padding: "12px", backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "6px", cursor: "pointer" }}
-                  >
-                    <div style={{ color: themeColor, fontWeight: "bold" }}>{weapon.name}</div>
-                    <div style={{ color: "#666", fontSize: "0.8rem" }}>Dano: {weapon.damage}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Proteção */}
-      {showProtectionModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" }}>
-          <div style={{ backgroundColor: "#111", border: `2px solid ${themeColor}`, borderRadius: "12px", width: "100%", maxWidth: "600px", maxHeight: "80vh", overflowY: "auto", padding: "25px", position: "relative" }}>
-            <button 
-              onClick={() => setShowProtectionModal(false)} 
-              style={{ position: "absolute", top: "15px", right: "15px", background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: "1.5rem" }}
-            >
-              ✕
-            </button>
-            <h2 style={{ color: themeColor, marginBottom: "20px" }}>SELECIONAR PROTEÇÃO</h2>
-            <div style={{ display: "grid", gap: "10px" }}>
-              {protections.map(protection => (
-                <div 
-                  key={protection.id}
-                  onClick={() => { handleAddProtection(protection.id); }}
-                  style={{ padding: "12px", backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "6px", cursor: "pointer" }}
-                >
-                  <div style={{ color: themeColor, fontWeight: "bold" }}>{protection.name}</div>
-                  <div style={{ color: "#666", fontSize: "0.8rem" }}>Defesa: +{protection.defense}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Itens Mágicos */}
-      {showMagicModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" }}>
-          <div style={{ backgroundColor: "#111", border: "2px solid #A855F7", borderRadius: "12px", width: "100%", maxWidth: "600px", maxHeight: "80vh", overflowY: "auto", padding: "25px", position: "relative" }}>
-            <button 
-              onClick={() => setShowMagicModal(false)} 
-              style={{ position: "absolute", top: "15px", right: "15px", background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: "1.5rem" }}
-            >
-              ✕
-            </button>
-            <h2 style={{ color: "#A855F7", marginBottom: "20px" }}>ADICIONAR ITEM MÁGICO</h2>
-
-            <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+            <div style={{ display: "flex", gap: "5px", marginBottom: "15px" }}>
               {(["amulet", "ingredient", "potion"] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setMagicTab(tab)}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    backgroundColor: magicTab === tab ? "#A855F7" : "#1A1A1A",
-                    color: magicTab === tab ? "#fff" : "#A855F7",
-                    border: "1px solid #A855F7",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
-                >
+                <button key={tab} onClick={() => setMagicTab(tab)} style={{ flex: 1, padding: "8px", backgroundColor: magicTab === tab ? "#C084FC" : "#1A1A1A", color: magicTab === tab ? "#fff" : "#C084FC", border: "1px solid #C084FC", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "0.8rem" }}>
                   {tab === "amulet" ? "Amuletos" : tab === "ingredient" ? "Ingredientes" : "Poções"}
                 </button>
               ))}
             </div>
-
-            <div style={{ display: "grid", gap: "10px", marginBottom: "20px" }}>
-              {getMagicItemsByType(magicTab).map(item => (
-                <div 
-                  key={item.id}
-                  onClick={() => { handleAddMagicItem(item); setShowMagicModal(false); }}
-                  style={{ padding: "12px", backgroundColor: "#1A1A1A", border: "1px solid #A855F7", borderRadius: "6px", cursor: "pointer" }}
-                >
-                  <div style={{ color: "#A855F7", fontWeight: "bold" }}>{item.name}</div>
-                  <div style={{ color: "#666", fontSize: "0.8rem" }}>{item.effect}</div>
+            <div style={{ display: "grid", gap: "8px" }}>
+              {magicTab === "amulet" && amulets.map(item => (
+                <div key={item.id} onClick={() => { addMagicItem(item, "amulet"); setActiveModal(null); }} style={{ padding: "10px", backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "4px", cursor: "pointer" }}>
+                  <div style={{ color: "#C084FC", fontWeight: "bold", fontSize: "0.9rem" }}>{item.name}</div>
+                  <div style={{ fontSize: "0.75rem", color: "#666" }}>{item.effect}</div>
+                </div>
+              ))}
+              {magicTab === "ingredient" && ingredients.map(item => (
+                <div key={item.id} onClick={() => { addMagicItem(item, "ingredient"); setActiveModal(null); }} style={{ padding: "10px", backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "4px", cursor: "pointer" }}>
+                  <div style={{ color: "#C084FC", fontWeight: "bold", fontSize: "0.9rem" }}>{item.name} ({item.quality})</div>
+                  <div style={{ fontSize: "0.75rem", color: "#666" }}>{item.effect}</div>
+                </div>
+              ))}
+              {magicTab === "potion" && potions.map(item => (
+                <div key={item.id} onClick={() => { addMagicItem(item, "potion"); setActiveModal(null); }} style={{ padding: "10px", backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "4px", cursor: "pointer" }}>
+                  <div style={{ color: "#C084FC", fontWeight: "bold", fontSize: "0.9rem" }}>{item.name}</div>
+                  <div style={{ fontSize: "0.75rem", color: "#666" }}>{item.effect}</div>
                 </div>
               ))}
             </div>
-
-            <div style={{ borderTop: "1px solid #333", paddingTop: "20px" }}>
-              <h3 style={{ color: "#A855F7", marginBottom: "10px" }}>Ou Adicione um Item Customizado</h3>
-              <input
-                type="text"
-                placeholder="Nome do item..."
-                value={customMagicName}
-                onChange={(e) => setCustomMagicName(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  marginBottom: "10px",
-                  backgroundColor: "#1A1A1A",
-                  border: "1px solid #9D4EDD",
-                  color: "#9D4EDD",
-                  borderRadius: "4px",
-                }}
-              />
-              <textarea
-                placeholder="Efeito do item..."
-                value={customMagicEffect}
-                onChange={(e) => setCustomMagicEffect(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  marginBottom: "10px",
-                  backgroundColor: "#1A1A1A",
-                  border: "1px solid #9D4EDD",
-                  color: "#9D4EDD",
-                  borderRadius: "4px",
-                  minHeight: "60px",
-                  fontFamily: "'Rajdhani', sans-serif",
-                }}
-              />
-              <button
-                onClick={handleAddCustomMagic}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  backgroundColor: "#A855F7",
-                  border: "none",
-                  color: "#fff",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                Adicionar Item Customizado
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowMagicModal(false)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                marginTop: "15px",
-                backgroundColor: "#9D4EDD",
-                border: "none",
-                color: "#1A1A1A",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Fechar
-            </button>
           </div>
         </div>
       )}

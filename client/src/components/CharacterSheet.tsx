@@ -6,7 +6,9 @@ import DefenseInventoryTab from "./DefenseInventoryTab";
 import RitualsTab from "./RitualsTab";
 import MagicsTab from "./MagicsTab";
 import { ConditionsTab } from "./ConditionsTab";
-import { Upload, Save, ArrowLeft, LogOut } from "lucide-react";
+import { PactosTab } from "./PactosTab";
+import { InvestigacaoTab } from "./InvestigacaoTab";
+import { Upload, Save, ArrowLeft, LogOut, Swords, Brain, Sparkles, Trash2 } from "lucide-react";
 import type { Ability } from "@/data/abilities";
 import { toast } from "sonner";
 
@@ -14,11 +16,12 @@ import { toast } from "sonner";
 import { auth, db } from "../firebase";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { listFichas, updateFicha } from "../../services/fichasClient";
+import { listFichas, updateFicha, getFicha, deleteFicha } from "../../services/fichasClient";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Elemento = "sangue" | "energia" | "morte" | "conhecimento" | "medo" | null;
+type Classe = "combatente" | "especialista" | "ocultista" | null;
 
 interface Attributes {
   forca: number;
@@ -56,6 +59,27 @@ interface SelectedTrailAbility {
   description: string;
 }
 
+interface SelectedPacto {
+  id: string;
+  name: string;
+  cost: string;
+  description: string;
+}
+
+interface HabilidadeInvestigativa {
+  id: string;
+  name: string;
+  cost: string;
+  description: string;
+}
+
+interface SelectedArquetipo {
+  id: string;
+  name: string;
+  description: string;
+  habilidades: HabilidadeInvestigativa[];
+}
+
 interface CharacterSheetProps {
   characterId: string;
   onBackToSelect: () => void;
@@ -68,7 +92,9 @@ type ActiveTab =
   | "defesa"
   | "rituais"
   | "magias"
-  | "condições";
+  | "condições"
+  | "pactos"
+  | "investigacao";
 
 const TAB_LABELS: Record<ActiveTab, string> = {
   personagem: "Personagem",
@@ -78,6 +104,8 @@ const TAB_LABELS: Record<ActiveTab, string> = {
   rituais: "Rituais",
   magias: "Magias",
   condições: "Condições",
+  pactos: "Pactos",
+  investigacao: "Investigação",
 };
 
 const ATTR_MAP: Record<string, keyof Attributes> = {
@@ -93,78 +121,74 @@ const ATTR_MAP: Record<string, keyof Attributes> = {
   carisma: "carisma",
 };
 
+// Lista oficial de perícias do sistema Ordem Paranormal
 const SKILLS_LIST: Omit<Skill, "trained" | "bonus">[] = [
   { name: "Acrobacia", attr: "Destreza" },
   { name: "Adestramento", attr: "Carisma" },
   { name: "Artes", attr: "Carisma" },
   { name: "Atletismo", attr: "Força" },
-  { name: "Atualidades", attr: "Inteligência" },
-  { name: "Ciências", attr: "Inteligência" },
+  { name: "Atualidades", attr: "Intelecto" },
+  { name: "Ciências", attr: "Intelecto" },
   { name: "Crime", attr: "Destreza" },
   { name: "Diplomacia", attr: "Carisma" },
   { name: "Enganação", attr: "Carisma" },
-  { name: "Fortitude", attr: "Constituição" },
+  { name: "Fortitude", attr: "Constituicao" },
   { name: "Furtividade", attr: "Destreza" },
   { name: "Iniciativa", attr: "Destreza" },
   { name: "Intimidação", attr: "Carisma" },
   { name: "Intuição", attr: "Carisma" },
-  { name: "Investigação", attr: "Inteligência" },
+  { name: "Investigação", attr: "Intelecto" },
   { name: "Luta", attr: "Força" },
-  { name: "Medicina", attr: "Inteligência" },
-  { name: "Ocultismo", attr: "Inteligência" },
-  { name: "Percepção", attr: "Sabedoria" },
+  { name: "Medicina", attr: "Intelecto" },
+  { name: "Ocultismo", attr: "Intelecto" },
+  { name: "Percepção", attr: "Carisma" },
   { name: "Pilotagem", attr: "Destreza" },
   { name: "Pontaria", attr: "Destreza" },
-  { name: "Profissão", attr: "Inteligência" },
+  { name: "Profissão", attr: "Intelecto" },
   { name: "Reflexos", attr: "Destreza" },
-  { name: "Religião", attr: "Sabedoria" },
-  { name: "Sobrevivência", attr: "Sabedoria" },
-  { name: "Tática", attr: "Inteligência" },
-  { name: "Tecnologia", attr: "Inteligência" },
-  { name: "Vontade", attr: "Sabedoria" },
+  { name: "Religião", attr: "Carisma" },
+  { name: "Sobrevivência", attr: "Intelecto" },
+  { name: "Tática", attr: "Intelecto" },
+  { name: "Tecnologia", attr: "Intelecto" },
+  { name: "Vontade", attr: "Carisma" },
 ];
 
-// Mapeamento de elemento para classes de borda (estáticas)
-const elementoBorderClass: Record<string, string> = {
-  sangue: "border-red-500",
-  energia: "border-purple-500",
-  morte: "border-gray-400",
-  conhecimento: "border-yellow-500",
-  medo: "border-white",
-  default: "border-green-400",
+// Mapeamento de classe para cores
+const classeBorderClass: Record<string, string> = {
+  combatente: "border-red-500",
+  especialista: "border-blue-500",
+  ocultista: "border-green-400",
+  default: "border-white",
 };
 
-// Mapeamento de elemento para cores (hex)
-const elementoColorMap: Record<string, string> = {
-  sangue: "#ef4444",
-  energia: "#a855f7",
-  morte: "#9ca3af",
-  conhecimento: "#eab308",
-  medo: "#ffffff",
-  default: "#4ade80",
+const classeColorMap: Record<string, string> = {
+  combatente: "#ef4444",
+  especialista: "#3b82f6",
+  ocultista: "#4ade80",
+  default: "#ffffff",
 };
 
-// Mapeamento para classes de texto (usado nas tabs)
-const elementoTextClass: Record<string, string> = {
-  sangue: "text-red-500",
-  energia: "text-purple-500",
-  morte: "text-gray-400",
-  conhecimento: "text-yellow-500",
-  medo: "text-white",
-  default: "text-green-400",
+const classeTextClass: Record<string, string> = {
+  combatente: "text-red-500",
+  especialista: "text-blue-500",
+  ocultista: "text-green-400",
+  default: "text-white",
 };
 
-// Mapeamento para classes de background (tabs ativas)
-const elementoBgClass: Record<string, string> = {
-  sangue: "bg-red-500",
-  energia: "bg-purple-500",
-  morte: "bg-gray-400",
-  conhecimento: "bg-yellow-500",
-  medo: "bg-white",
-  default: "bg-green-400",
+const classeBgClass: Record<string, string> = {
+  combatente: "bg-red-500",
+  especialista: "bg-blue-500",
+  ocultista: "bg-green-400",
+  default: "bg-white",
 };
 
-// ─── Helper Components (mantidos) ───────────────────────────────────────────────
+const classeIconMap: Record<string, React.ReactNode> = {
+  combatente: <Swords size={18} />,
+  especialista: <Brain size={18} />,
+  ocultista: <Sparkles size={18} />,
+};
+
+// ─── Helper Components ────────────────────────────────────────────────────────
 
 const StatusBar = ({ label, current, max, color, onChange }: { label: string; current: number; max: number; color: string; onChange: (val: number, isMax: boolean) => void }) => {
   const safeMax = Math.max(1, max);
@@ -216,7 +240,7 @@ const SkillRow = ({ skill, attrValue, onToggle, onBonusChange }: { skill: Skill;
         <span className="text-[0.72rem] text-white/50 sm:text-xs">Bônus</span>
         <input type="number" value={skill.bonus} onChange={(e) => onBonusChange(parseInt(e.target.value) || 0)} className="w-10 bg-transparent text-center text-sm text-white outline-none" />
       </div>
-      <div className={`w-12 text-right text-sm font-bold sm:w-14 ${total >= 0 ? "text-green-400" : "text-red-400"}`}>
+      <div className={`w-12 text-right text-sm font-bold sm:w-14 ${total >= 0 ? "text-white" : "text-red-400"}`}>
         {total >= 0 ? `+${total}` : total}
       </div>
     </div>
@@ -227,14 +251,19 @@ const SkillRow = ({ skill, attrValue, onToggle, onBonusChange }: { skill: Skill;
 
 export default function CharacterSheet({ characterId, onBackToSelect }: CharacterSheetProps) {
   const user = auth.currentUser;
+  const MASTER_UID = import.meta.env.VITE_MASTER_UID;
+  const isMaster = user?.uid === MASTER_UID;
+
   const [displayName, setDisplayName] = useState("");
   const [activeTab, setActiveTab] = useState<ActiveTab>("personagem");
   const [characterName, setCharacterName] = useState("Novo Personagem");
   const [characterImage, setCharacterImage] = useState<string | null>(null);
   const [elemento, setElemento] = useState<Elemento>(null);
+  const [classe, setClasse] = useState<Classe>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [attributes, setAttributes] = useState<Attributes>({
     forca: 0, destreza: 0, intelecto: 0, constituicao: 0, sabedoria: 0, carisma: 0,
@@ -252,15 +281,20 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
   const [selectedTrailAbilities, setSelectedTrailAbilities] = useState<SelectedTrailAbility[]>([]);
   const [defenseInventoryData, setDefenseInventoryData] = useState<any>(null);
   const [activeConditions, setActiveConditions] = useState<any[]>([]);
+  const [selectedPacto, setSelectedPacto] = useState<SelectedPacto | null>(null);
+  const [selectedArquetipo, setSelectedArquetipo] = useState<SelectedArquetipo | null>(null);
+
+  // Pontos de Investigação (PI)
+  const [piAtual, setPiAtual] = useState<number>(0);
+  const [piMax, setPiMax] = useState<number>(5);
 
   const attributeGridClass = "grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5 place-items-center";
 
-  // Determinar classes com base no elemento selecionado
-  const elementoKey = elemento || "default";
-  const borderClass = elementoBorderClass[elementoKey];
-  const textClass = elementoTextClass[elementoKey];
-  const bgClass = elementoBgClass[elementoKey];
-  const elementColor = elementoColorMap[elementoKey];
+  const classeKey = classe || "default";
+  const borderClass = classeBorderClass[classeKey];
+  const textClass = classeTextClass[classeKey];
+  const bgClass = classeBgClass[classeKey];
+  const themeColor = classeColorMap[classeKey];
 
   const panelClass = `mx-auto w-full max-w-[1200px] rounded-xl border ${borderClass} bg-[#111] p-3 shadow-[0_0_0_1px_rgba(0,0,0,0.2)] sm:p-5`;
 
@@ -294,16 +328,24 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       onBackToSelect();
       return;
     }
+
     const loadCharacter = async () => {
       try {
         setIsLoading(true);
-        const fichas = await listFichas(user.uid);
-        const ficha = fichas.find((f: any) => f.id === characterId) as any;
+        let ficha;
+        if (isMaster) {
+          ficha = await getFicha(characterId);
+        } else {
+          const fichas = await listFichas(user.uid);
+          ficha = fichas.find((f: any) => f.id === characterId) as any;
+        }
+
         if (!ficha) {
           toast.error("Ficha não encontrada");
           onBackToSelect();
           return;
         }
+
         const data = ficha.data || {};
         if (data.characterName) setCharacterName(data.characterName);
         if (data.attrs) setAttributes(data.attrs);
@@ -311,10 +353,15 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
         if (data.skills) setSkills(data.skills);
         if (data.characterImage) setCharacterImage(data.characterImage);
         if (data.elemento) setElemento(data.elemento);
+        if (data.classe) setClasse(data.classe);
         setSelectedAbilities(Array.isArray(data.selectedAbilities) ? data.selectedAbilities : []);
         setSelectedTrailAbilities(Array.isArray(data.selectedTrailAbilities) ? data.selectedTrailAbilities : []);
         setDefenseInventoryData(data.defenseInventory || null);
         setActiveConditions(Array.isArray(data.conditions) ? data.conditions : []);
+        if (data.selectedPacto) setSelectedPacto(data.selectedPacto);
+        if (data.selectedArquetipo) setSelectedArquetipo(data.selectedArquetipo);
+        if (data.piAtual !== undefined) setPiAtual(data.piAtual);
+        if (data.piMax !== undefined) setPiMax(data.piMax);
       } catch (error) {
         console.error("Erro ao carregar ficha:", error);
         toast.error("Erro ao carregar dados da ficha");
@@ -323,13 +370,19 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       }
     };
     loadCharacter();
-  }, [characterId, user, onBackToSelect]);
+  }, [characterId, user, onBackToSelect, isMaster]);
 
+  // Salvar no Firestore
   const saveToFirestore = async (data: any) => {
     if (!user) return;
     setIsSaving(true);
     try {
-      await updateFicha(user.uid, characterId, data);
+      let targetUserId = user.uid;
+      if (isMaster) {
+        const fichaOriginal = await getFicha(characterId) as any;
+        targetUserId = fichaOriginal?.userId || user.uid;
+      }
+      await updateFicha(targetUserId, characterId, data);
       toast.success("Ficha salva com sucesso!");
     } catch (error) {
       console.error("Erro ao salvar:", error);
@@ -347,15 +400,39 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       skills,
       characterImage,
       elemento,
+      classe,
       selectedAbilities,
       selectedTrailAbilities,
       defenseInventory: defenseInventoryData,
       conditions: activeConditions,
+      selectedPacto,
+      selectedArquetipo,
+      piAtual,
+      piMax,
       lastSaved: new Date().toISOString(),
     };
     saveToFirestore(dataToSave);
   };
 
+  // Excluir ficha
+  const handleDeleteFicha = async () => {
+    if (!user) return;
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta ficha?")) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteFicha(characterId);
+      toast.success("Ficha excluída com sucesso!");
+      onBackToSelect();
+    } catch (error) {
+      console.error("Erro ao excluir ficha:", error);
+      toast.error("Erro ao excluir ficha");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Auto-save
   useEffect(() => {
     if (isLoading) return;
     const dataToSave = {
@@ -365,17 +442,25 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       skills,
       characterImage,
       elemento,
+      classe,
       selectedAbilities,
       selectedTrailAbilities,
       defenseInventory: defenseInventoryData,
       conditions: activeConditions,
+      selectedPacto,
+      selectedArquetipo,
+      piAtual,
+      piMax,
       lastSaved: new Date().toISOString(),
     };
     const timer = setTimeout(() => {
-      if (user) updateFicha(user.uid, characterId, dataToSave).catch((err) => console.error("Auto-save falhou:", err));
+      if (user) {
+        const targetUserId = isMaster ? user.uid : user.uid;
+        updateFicha(targetUserId, characterId, dataToSave).catch((err) => console.error("Auto-save falhou:", err));
+      }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [characterName, attributes, status, skills, characterImage, elemento, selectedAbilities, selectedTrailAbilities, defenseInventoryData, activeConditions, characterId, user, isLoading]);
+  }, [characterName, attributes, status, skills, characterImage, elemento, classe, selectedAbilities, selectedTrailAbilities, defenseInventoryData, activeConditions, selectedPacto, selectedArquetipo, piAtual, piMax, characterId, user, isLoading, isMaster]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -409,28 +494,15 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#0A0A0A] px-2 py-3 text-white sm:px-4 sm:py-5 relative z-0">
-      {/* Header customizado com logo "Oitavo B" glitch */}
+      {/* Header */}
       <div className={`mx-auto mb-3 flex w-full max-w-[1200px] flex-col gap-3 border-b ${borderClass} pb-3 sm:flex-row sm:items-center sm:justify-between`}>
-        {/* Botão Voltar */}
-        <button 
-          onClick={onBackToSelect} 
-          className={`inline-flex items-center justify-center gap-2 self-start rounded-md border ${borderClass} px-3 py-2 text-xs font-bold ${textClass} transition-transform active:scale-[0.98] sm:text-sm whitespace-nowrap`}
-        >
+        <button onClick={onBackToSelect} className={`inline-flex items-center justify-center gap-2 self-start rounded-md border ${borderClass} px-3 py-2 text-xs font-bold ${textClass} transition-transform active:scale-[0.98] sm:text-sm whitespace-nowrap`}>
           <ArrowLeft size={16} /> Voltar
         </button>
-
-        {/* Logo centralizada */}
-        <h1 className="glitch-text text-center text-2xl sm:text-4xl order-first sm:order-none mb-2 sm:mb-0" data-text="OITAVO B">
-          OITAVO B
-        </h1>
-
-        {/* Área do usuário e logout */}
+        <h1 className="glitch-text text-center text-2xl sm:text-4xl order-first sm:order-none mb-2 sm:mb-0" data-text="OITAVO B">OITAVO B</h1>
         <div className="flex items-center gap-2 self-end sm:self-auto">
           <span className="text-xs sm:text-sm text-white/70 truncate max-w-[100px] sm:max-w-none">{displayName}</span>
-          <button 
-            onClick={handleLogout} 
-            className="inline-flex items-center gap-1 rounded-md border border-red-400/70 px-2 py-1.5 sm:px-3 text-xs text-red-400 hover:bg-red-400/10 whitespace-nowrap"
-          >
+          <button onClick={handleLogout} className="inline-flex items-center gap-1 rounded-md border border-red-400/70 px-2 py-1.5 sm:px-3 text-xs text-red-400 hover:bg-red-400/10 whitespace-nowrap">
             <LogOut size={14} /> Sair
           </button>
         </div>
@@ -442,16 +514,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
           {(Object.keys(TAB_LABELS) as ActiveTab[]).map((tab) => {
             const isActive = activeTab === tab;
             return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={[
-                  "whitespace-nowrap rounded-md border px-3 py-2 text-[0.72rem] font-bold uppercase transition-colors sm:px-5 sm:py-3 sm:text-xs",
-                  isActive
-                    ? `${borderClass} ${bgClass} text-black shadow-[0_0_14px_rgba(74,222,128,0.22)]`
-                    : `${borderClass} bg-[#111] ${textClass}`,
-                ].join(" ")}
-              >
+              <button key={tab} onClick={() => setActiveTab(tab)} className={["whitespace-nowrap rounded-md border px-3 py-2 text-[0.72rem] font-bold uppercase transition-colors sm:px-5 sm:py-3 sm:text-xs", isActive ? `${borderClass} ${bgClass} text-black shadow-[0_0_14px_rgba(255,255,255,0.22)]` : `${borderClass} bg-[#111] ${textClass}`].join(" ")}>
                 {TAB_LABELS[tab]}
               </button>
             );
@@ -469,45 +532,79 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
                   <img src={characterImage} alt="Personagem" className="h-full w-full object-cover" />
                 ) : (
                   <>
-                    <Upload color={elementColor} size={48} />
-                    <p className="mt-3 max-w-[260px] text-center text-[0.82rem] leading-tight sm:text-sm" style={{ color: elementColor }}>
+                    <Upload color={themeColor} size={48} />
+                    <p className="mt-3 max-w-[260px] text-center text-[0.82rem] leading-tight sm:text-sm" style={{ color: themeColor }}>
                       Clique para fazer upload da imagem do personagem
                     </p>
                   </>
                 )}
               </div>
               <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+              
               <div className="mt-4">
-                <label className="mb-2 block text-left text-[0.7rem] uppercase tracking-widest" style={{ color: elementColor }}>
+                <label className="mb-2 block text-left text-[0.7rem] uppercase tracking-widest" style={{ color: themeColor }}>
                   Nome do personagem
                 </label>
-                <input type="text" value={characterName} onChange={(e) => setCharacterName(e.target.value)} className={`w-full rounded-lg border ${borderClass} bg-[#050505] px-3 py-3 text-base text-white outline-none placeholder:text-white/30 focus:ring-1 focus:ring-${elementoKey} sm:text-lg`} />
+                <input type="text" value={characterName} onChange={(e) => setCharacterName(e.target.value)} className={`w-full rounded-lg border ${borderClass} bg-[#050505] px-3 py-3 text-base text-white outline-none placeholder:text-white/30 focus:ring-1 focus:ring-${classeKey} sm:text-lg`} />
               </div>
+
+              {/* Seletor de Classe com cor */}
               <div className="mt-4">
-                <label className="mb-2 block text-left text-[0.7rem] uppercase tracking-widest" style={{ color: elementColor }}>
+                <label className="mb-2 block text-left text-[0.7rem] uppercase tracking-widest" style={{ color: themeColor }}>
+                  Classe
+                </label>
+                <div className="relative">
+                  <select 
+                    value={classe || ""} 
+                    onChange={(e) => setClasse(e.target.value as Classe || null)} 
+                    className={`w-full rounded-lg border ${borderClass} bg-[#050505] px-3 py-3 text-base text-white outline-none sm:text-lg appearance-none`}
+                  >
+                    <option value="">Nenhuma</option>
+                    <option value="combatente">Combatente</option>
+                    <option value="especialista">Especialista</option>
+                    <option value="ocultista">Ocultista</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: themeColor }}>
+                    {classe ? classeIconMap[classe] : <Sparkles size={18} />}
+                  </div>
+                </div>
+                {classe && (
+                  <div className="mt-2 flex justify-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1" style={{ borderColor: themeColor, color: themeColor }}>
+                      {classeIconMap[classe]}
+                      <span className="text-xs font-semibold uppercase">{classe}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Seletor de Elemento (sem cor) */}
+              <div className="mt-4">
+                <label className="mb-2 block text-left text-[0.7rem] uppercase tracking-widest text-white/70">
                   Elemento
                 </label>
-                <select value={elemento || ""} onChange={(e) => setElemento(e.target.value as Elemento || null)} className={`w-full rounded-lg border ${borderClass} bg-[#050505] px-3 py-3 text-base text-white outline-none sm:text-lg`}>
-                  <option value="">Nenhum (Verde)</option>
-                  <option value="sangue">Sangue (Vermelho)</option>
-                  <option value="energia">Energia (Roxo)</option>
-                  <option value="morte">Morte (Cinza)</option>
-                  <option value="conhecimento">Conhecimento (Amarelo)</option>
-                  <option value="medo">Medo (Branco)</option>
+                <select value={elemento || ""} onChange={(e) => setElemento(e.target.value as Elemento || null)} className="w-full rounded-lg border border-white/30 bg-[#050505] px-3 py-3 text-base text-white outline-none sm:text-lg">
+                  <option value="">Nenhum</option>
+                  <option value="sangue">Sangue</option>
+                  <option value="energia">Energia</option>
+                  <option value="morte">Morte</option>
+                  <option value="conhecimento">Conhecimento</option>
+                  <option value="medo">Medo</option>
                 </select>
               </div>
             </div>
+
             <div className="min-w-0">
-              <h3 className="mb-4 border-b border-white/10 pb-2 text-sm font-bold tracking-widest sm:text-base" style={{ color: elementColor }}>
+              <h3 className="mb-4 border-b border-white/10 pb-2 text-sm font-bold tracking-widest sm:text-base" style={{ color: themeColor }}>
                 ATRIBUTOS
               </h3>
               <div className={attributeGridClass}>
-                <AttributeCircle label="FORÇA" subLabel="FOR" value={attributes.forca} onChange={(v) => updateAttribute("forca", v)} color={elementColor} />
-                <AttributeCircle label="DESTREZA" subLabel="DES" value={attributes.destreza} onChange={(v) => updateAttribute("destreza", v)} color={elementColor} />
-                <AttributeCircle label="INTELECTO" subLabel="INT" value={attributes.intelecto} onChange={(v) => updateAttribute("intelecto", v)} color={elementColor} />
-                <AttributeCircle label="CONSTITUIÇÃO" subLabel="CON" value={attributes.constituicao} onChange={(v) => updateAttribute("constituicao", v)} color={elementColor} />
-                <AttributeCircle label="SABEDORIA" subLabel="SAB" value={attributes.sabedoria} onChange={(v) => updateAttribute("sabedoria", v)} color={elementColor} />
-                <AttributeCircle label="CARISMA" subLabel="CAR" value={attributes.carisma} onChange={(v) => updateAttribute("carisma", v)} color={elementColor} />
+                <AttributeCircle label="FORÇA" subLabel="FOR" value={attributes.forca} onChange={(v) => updateAttribute("forca", v)} color={themeColor} />
+                <AttributeCircle label="DESTREZA" subLabel="DES" value={attributes.destreza} onChange={(v) => updateAttribute("destreza", v)} color={themeColor} />
+                <AttributeCircle label="INTELECTO" subLabel="INT" value={attributes.intelecto} onChange={(v) => updateAttribute("intelecto", v)} color={themeColor} />
+                <AttributeCircle label="CONSTITUIÇÃO" subLabel="CON" value={attributes.constituicao} onChange={(v) => updateAttribute("constituicao", v)} color={themeColor} />
+                <AttributeCircle label="SABEDORIA" subLabel="SAB" value={attributes.sabedoria} onChange={(v) => updateAttribute("sabedoria", v)} color={themeColor} />
+                <AttributeCircle label="CARISMA" subLabel="CAR" value={attributes.carisma} onChange={(v) => updateAttribute("carisma", v)} color={themeColor} />
               </div>
             </div>
           </div>
@@ -516,7 +613,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
         {activeTab === "status" && (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-8">
             <div>
-              <h3 className="mb-4 border-b border-white/10 pb-2 text-sm font-bold tracking-widest sm:text-base" style={{ color: elementColor }}>
+              <h3 className="mb-4 border-b border-white/10 pb-2 text-sm font-bold tracking-widest sm:text-base" style={{ color: themeColor }}>
                 STATUS
               </h3>
               <StatusBar label="PONTOS DE VIDA" current={status.pvAtual} max={status.pvMax} color="#EF4444" onChange={(v, isMax) => updateStatus(isMax ? "pvMax" : "pvAtual", v)} />
@@ -524,7 +621,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
               <VoidBar current={status.evAtual} onChange={(v) => updateStatus("evAtual", v)} />
             </div>
             <div>
-              <h3 className="mb-4 border-b border-white/10 pb-2 text-sm font-bold tracking-widest sm:text-base" style={{ color: elementColor }}>
+              <h3 className="mb-4 border-b border-white/10 pb-2 text-sm font-bold tracking-widest sm:text-base" style={{ color: themeColor }}>
                 PERÍCIAS
               </h3>
               <div className="max-h-[520px] overflow-y-auto pr-1 sm:pr-2">
@@ -542,17 +639,45 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
         {activeTab === "defesa" && (
           <DefenseInventoryTab characterData={{ attributes: attributes as unknown as Record<string, number> }} initialData={defenseInventoryData} onUpdate={setDefenseInventoryData} />
         )}
-        {activeTab === "rituais" && <RitualsTab themeColor={elementColor} />}
-        {activeTab === "magias" && <MagicsTab themeColor={elementColor} />}
+        {activeTab === "rituais" && <RitualsTab themeColor={themeColor} />}
+        {activeTab === "magias" && <MagicsTab themeColor={themeColor} />}
         {activeTab === "condições" && (
           <ConditionsTab activeConditions={activeConditions} onConditionsChange={setActiveConditions} />
         )}
+        {activeTab === "pactos" && (
+          <PactosTab selectedPacto={selectedPacto} onPactoChange={setSelectedPacto} themeColor="#C084FC" />
+        )}
+        {activeTab === "investigacao" && (
+          <InvestigacaoTab
+            selectedArquetipo={selectedArquetipo}
+            onArquetipoChange={setSelectedArquetipo}
+            piAtual={piAtual}
+            piMax={piMax}
+            onPiChange={(atual, max) => { setPiAtual(atual); setPiMax(max); }}
+            themeColor="#F59E0B"
+          />
+        )}
 
+        {/* Botões de ação (Salvar e Excluir) */}
         <div className="mt-6 border-t border-white/10 pt-5">
-          <div className="flex justify-center">
-            <button onClick={handleManualSave} disabled={isSaving} className="inline-flex items-center gap-2 rounded-md bg-green-400 px-5 py-3 text-sm font-bold text-black shadow-[0_0_15px_rgba(74,222,128,0.22)] transition-transform active:scale-[0.98] disabled:opacity-50 sm:px-8 sm:py-3.5 sm:text-base" style={{ backgroundColor: elementColor }}>
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={handleManualSave}
+              disabled={isSaving || isDeleting}
+              className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-bold text-black shadow-[0_0_15px_rgba(255,255,255,0.22)] transition-transform active:scale-[0.98] disabled:opacity-50 sm:px-8 sm:py-3.5 sm:text-base"
+              style={{ backgroundColor: themeColor }}
+            >
               <Save size={18} />
               {isSaving ? "SALVANDO..." : "SALVAR FICHA"}
+            </button>
+
+            <button
+              onClick={handleDeleteFicha}
+              disabled={isSaving || isDeleting}
+              className="inline-flex items-center gap-2 rounded-md border border-red-500 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.22)] transition-transform hover:bg-red-500 hover:text-white active:scale-[0.98] disabled:opacity-50 sm:px-8 sm:py-3.5 sm:text-base"
+            >
+              <Trash2 size={18} />
+              {isDeleting ? "EXCLUINDO..." : "EXCLUIR FICHA"}
             </button>
           </div>
         </div>

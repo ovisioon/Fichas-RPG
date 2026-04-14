@@ -1,308 +1,287 @@
-// ════════════════════════════════════════════════════════════════════
-// SISTEMA DE MAGIA - Amuletos, Ingredientes e Poções
-// Design: Dark Fantasy Manga com verde neon
-// ════════════════════════════════════════════════════════════════════
+// client/src/data/magic.ts
 
-export interface MagicItem {
+export interface Amulet {
   id: string;
   name: string;
-  type: "amulet" | "ingredient" | "potion";
+  description: string;
+  effect: string;
+  ingredients?: string[];
+}
+
+export interface Ingredient {
+  id: string;
+  name: string;
+  quality: "Precário" | "Ordinário" | "Absoluto";
+  type: string;
   description: string;
   effect: string;
   quantity?: number;
-  rarity?: "precária" | "ordinária" | "absoluta";
 }
 
-export interface MagicInventoryItem extends MagicItem {
-  quantity: number;
+export interface Potion {
+  id: string;
+  name: string;
+  description: string;
+  effect: string;
+  ingredients: string[];
 }
 
-// ════════════════════════════════════════════════════════════════════
-// AMULETOS BÁSICOS
-// ════════════════════════════════════════════════════════════════════
-
-export const amulets: MagicItem[] = [
+export const amulets: Amulet[] = [
   {
-    id: "amulet-1",
-    name: "Amuleto de Proteção",
-    type: "amulet",
-    description: "Um amuleto antigo que oferece proteção contra o mal.",
-    effect: "+2 em testes de resistência a magia",
+    id: "runa-salvamento-mental",
+    name: "Runa de Salvamento Mental",
+    description: "Após uma cena de conflito, todos os aliados curam 2d6 PS.",
+    effect: "Cura 2d6 PS em aliados após cena de conflito.",
+    ingredients: ["1 Pilha de Sucata Precária", "1 Porção de Álisso Absoluto"]
   },
   {
-    id: "amulet-2",
-    name: "Amuleto de Sorte",
-    type: "amulet",
-    description: "Traz boa sorte ao portador.",
-    effect: "+1 em um teste por dia",
+    id: "runa-absorcao-energetica",
+    name: "Runa de Absorção Energética",
+    description: "Ao começar uma cena de conflito, todos os aliados recebem 2 PE.",
+    effect: "Concede 2 PE a todos os aliados no início de cena de conflito.",
+    ingredients: ["3 Pilhas de Sucata Precária", "1 Porção de Álisso Absoluto"]
   },
   {
-    id: "amulet-3",
-    name: "Amuleto de Vitalidade",
-    type: "amulet",
-    description: "Restaura a energia vital.",
-    effect: "+5 PV máximo",
-  },
+    id: "runa-fortalecimento-corporal",
+    name: "Runa de Fortalecimento Corporal",
+    description: "Ao começar uma cena de conflito, todos os aliados recebem 2 de resistência Física ou Balística até o final do próximo turno.",
+    effect: "Resistência Física ou Balística +2 por 1 rodada.",
+    ingredients: ["1 Mistura de Cristais"]
+  }
 ];
 
-// ════════════════════════════════════════════════════════════════════
-// INGREDIENTES MÁGICOS
-// ════════════════════════════════════════════════════════════════════
-
-export const ingredients: MagicItem[] = [
-  // ÁLCOOL
+export const ingredients: Ingredient[] = [
+  // Garrafa de Álcool
   {
-    id: "ingredient-alcool-precario",
-    name: "Álcool Precário",
-    type: "ingredient",
-    rarity: "precária",
-    description: "Base comum de poção.",
-    effect: "A poção se torna arremessável e se espalha em área curta.",
-    quantity: 3,
+    id: "alcool-precario",
+    name: "Garrafa de Álcool Precário",
+    quality: "Precário",
+    type: "Base",
+    description: "Base comum de poção. Torna a poção arremessável em área curta.",
+    effect: "Poção arremessável em área curta.",
+    quantity: 3
   },
   {
-    id: "ingredient-alcool-ordinario",
-    name: "Álcool Ordinário",
-    type: "ingredient",
-    rarity: "ordinária",
+    id: "alcool-ordinario",
+    name: "Garrafa de Álcool Ordinário",
+    quality: "Ordinário",
+    type: "Base",
     description: "Álcool padrão de preparo alquímico.",
     effect: "Continua arremessável, mas atinge apenas um alvo em vez de área.",
-    quantity: 2,
+    quantity: 2
   },
   {
-    id: "ingredient-alcool-absoluto",
-    name: "Álcool Absoluto",
-    type: "ingredient",
-    rarity: "absoluta",
+    id: "alcool-absoluto",
+    name: "Garrafa de Álcool Absoluto",
+    quality: "Absoluto",
+    type: "Base",
     description: "Destilação refinada.",
     effect: "A poção pode ser consumida diretamente por um alvo específico ou usar os efeitos das versões anteriores.",
-    quantity: 1,
+    quantity: 1
   },
-
-  // SUCATA
+  // Sucata
   {
-    id: "ingredient-sucata-precaria",
+    id: "sucata-precaria",
     name: "Sucata Precária",
-    type: "ingredient",
-    rarity: "precária",
+    quality: "Precário",
+    type: "Metal",
     description: "Material simples.",
     effect: "Usado apenas para itens sem finalidade destrutiva.",
-    quantity: 3,
+    quantity: 3
   },
   {
-    id: "ingredient-sucata-ordinaria",
+    id: "sucata-ordinaria",
     name: "Sucata Ordinária",
-    type: "ingredient",
-    rarity: "ordinária",
+    quality: "Ordinário",
+    type: "Metal",
     description: "Material de qualidade moderada.",
     effect: "Permite criar itens capazes de causar dano, mas ainda moderados.",
-    quantity: 2,
+    quantity: 2
   },
   {
-    id: "ingredient-sucata-absoluta",
+    id: "sucata-absoluta",
     name: "Sucata Absoluta",
-    type: "ingredient",
-    rarity: "absoluta",
+    quality: "Absoluto",
+    type: "Metal",
     description: "Metal refinado.",
     effect: "Ideal para itens destrutivos ou de grande eficiência.",
-    quantity: 1,
+    quantity: 1
   },
-
-  // ÁLISSO
+  // Álisso
   {
-    id: "ingredient-alisso-precario",
+    id: "alisso-precario",
     name: "Álisso Precário",
-    type: "ingredient",
-    rarity: "precária",
+    quality: "Precário",
+    type: "Essência",
     description: "Essência frágil da planta álisso.",
     effect: "Concede 2d4 de dano físico ao item.",
-    quantity: 3,
+    quantity: 3
   },
   {
-    id: "ingredient-alisso-ordinario",
+    id: "alisso-ordinario",
     name: "Álisso Ordinário",
-    type: "ingredient",
-    rarity: "ordinária",
+    quality: "Ordinário",
+    type: "Essência",
     description: "Álisso fresco e de boa qualidade.",
-    effect: "Dados aumentam para 2d6. Pode causar dano elemental em vez de físico. Pode substituir o efeito por cura de PV.",
-    quantity: 2,
+    effect: "Dados aumentam para 2d6. Pode causar dano elemental em vez de físico ou substituir por cura de PV.",
+    quantity: 2
   },
   {
-    id: "ingredient-alisso-absoluto",
+    id: "alisso-absoluto",
     name: "Álisso Absoluto",
-    type: "ingredient",
-    rarity: "absoluta",
+    quality: "Absoluto",
+    type: "Essência",
     description: "Colhido sob condições raras.",
     effect: "Permite substituir o efeito por cura de PS ou causar dano.",
-    quantity: 1,
+    quantity: 1
   },
-
-  // CRISTAIS
+  // Cristais
   {
-    id: "ingredient-cristal-precario",
+    id: "cristais-precarios",
     name: "Cristais Precários",
-    type: "ingredient",
-    rarity: "precária",
+    quality: "Precário",
+    type: "Cristal",
     description: "Fragmentos instáveis.",
     effect: "Concede 2 de resistência a dano físico ou balístico.",
-    quantity: 3,
+    quantity: 3
   },
   {
-    id: "ingredient-cristal-ordinario",
+    id: "cristais-ordinarios",
     name: "Cristais Ordinários",
-    type: "ingredient",
-    rarity: "ordinária",
+    quality: "Ordinário",
+    type: "Cristal",
     description: "Cristais mais estáveis.",
     effect: "Concede 4 de resistência a dano físico, balístico ou elemental.",
-    quantity: 2,
+    quantity: 2
   },
   {
-    id: "ingredient-cristal-absoluto",
+    id: "cristais-absolutos",
     name: "Cristais Absolutos",
-    type: "ingredient",
-    rarity: "absoluta",
+    quality: "Absoluto",
+    type: "Cristal",
     description: "Cristais refinados.",
     effect: "Concede 6 de resistência a dano físico, balístico, elemental ou paranormal.",
-    quantity: 1,
+    quantity: 1
   },
-
-  // MISTURA DE MINÉRIOS
+  // Mistura de Minérios
   {
-    id: "ingredient-minerios-precaria",
+    id: "mistura-minerios-precaria",
     name: "Mistura de Minérios Precária",
-    type: "ingredient",
-    rarity: "precária",
+    quality: "Precário",
+    type: "Mistura",
     description: "Mistura volátil.",
     effect: "Causa uma condição até o início da próxima rodada: Caído, Imóvel ou Queimando.",
-    quantity: 1,
+    quantity: 1
   },
   {
-    id: "ingredient-minerios-ordinaria",
+    id: "mistura-minerios-ordinaria",
     name: "Mistura de Minérios Ordinária",
-    type: "ingredient",
-    rarity: "ordinária",
+    quality: "Ordinário",
+    type: "Mistura",
     description: "Mistura equilibrada.",
     effect: "Pode aplicar até o final da próxima rodada: Cego, Eletrocutado ou Envenenado.",
-    quantity: 1,
+    quantity: 1
   },
   {
-    id: "ingredient-minerios-absoluta",
+    id: "mistura-minerios-absoluta",
     name: "Mistura de Minérios Absoluta",
-    type: "ingredient",
-    rarity: "absoluta",
+    quality: "Absoluto",
+    type: "Mistura",
     description: "Fusão mineral refinada.",
-    effect: "Adiciona novas condições: Atordoado, Furtivo ou Indefeso.",
-    quantity: 1,
+    effect: "Adiciona novas condições: Atordoado, Furtivo, Indefeso.",
+    quantity: 1
   },
-
-  // PACOTE DE ERVAS
+  // Pacote de Ervas
   {
-    id: "ingredient-ervas",
+    id: "pacote-ervas",
     name: "Pacote de Ervas",
-    type: "ingredient",
+    quality: "Ordinário",
+    type: "Ervas",
     description: "Mistura de flores, musgos e plantas medicinais.",
-    effect: "Aumenta em +1 a quantidade de dados do efeito do item (caso ele possua dados).",
-    quantity: 1,
+    effect: "Aumenta em +1 a quantidade de dados do efeito do item.",
+    quantity: 1
   },
-
-  // FLOR MORBIDUS
+  // Flor Morbidus
   {
-    id: "ingredient-flor-precaria",
+    id: "flor-morbidus-precaria",
     name: "Flor Morbidus Precária",
-    type: "ingredient",
-    rarity: "precária",
-    description: "Flor rara e delicada.",
+    quality: "Precário",
+    type: "Flor",
+    description: "",
     effect: "Adiciona +2 rodadas de duração ao efeito do item. Penalidade: o usuário perde 1 PE.",
-    quantity: 2,
+    quantity: 2
   },
   {
-    id: "ingredient-flor-ordinaria",
+    id: "flor-morbidus-ordinaria",
     name: "Flor Morbidus Ordinária",
-    type: "ingredient",
-    rarity: "ordinária",
-    description: "Flor de qualidade moderada.",
+    quality: "Ordinário",
+    type: "Flor",
+    description: "",
     effect: "Aumenta a duração do efeito para 3 rodadas, sem drenagem.",
-    quantity: 1,
+    quantity: 1
   },
   {
-    id: "ingredient-flor-absoluta",
+    id: "flor-morbidus-absoluta",
     name: "Flor Morbidus Absoluta",
-    type: "ingredient",
-    rarity: "absoluta",
-    description: "Flor perfeita e radiante.",
+    quality: "Absoluto",
+    type: "Flor",
+    description: "",
     effect: "Todos os efeitos do item duram 4 rodadas.",
-    quantity: 1,
+    quantity: 1
   },
-
-  // RUBRUM CRYSTALLUM
+  // Rubrum Crystallum
   {
-    id: "ingredient-rubrum",
+    id: "rubrum-crystallum",
     name: "Rubrum Crystallum",
-    type: "ingredient",
+    quality: "Absoluto",
+    type: "Cristal Especial",
     description: "Cristal vermelho poderoso energizado pelo plano energético.",
-    effect: "Ao ser colocado em uma poção, ela simula o efeito de um feitiço de 1º círculo de duração instantânea à escolha do criador.",
-    quantity: 1,
-  },
+    effect: "Simula o efeito de um feitiço de 1º círculo de duração instantânea à escolha do criador. Anula efeitos de Álisso, Cristais, Mistura de Minérios e Pacote de Ervas.",
+    quantity: 1
+  }
 ];
 
-// ════════════════════════════════════════════════════════════════════
-// FÓRMULAS DE POÇÕES
-// ════════════════════════════════════════════════════════════════════
-
-export const potions: MagicItem[] = [
+export const potions: Potion[] = [
   {
-    id: "potion-cura-vida",
+    id: "pocao-cura-vida",
     name: "Poção de Cura de Vida",
-    type: "potion",
-    description: "Cura ferimentos e restaura a vitalidade do usuário.",
-    effect: "Cura 3d6 PV em quem consumir.",
+    description: "Cura ferimentos e restaura a vitalidade.",
+    effect: "Cura 3d6 PV.",
+    ingredients: ["1 Garrafa de Álcool Absoluto", "1 Pacote de Ervas", "1 Porção de Álisso Ordinário"]
   },
   {
-    id: "potion-cura-mente",
+    id: "pocao-cura-mente",
     name: "Poção de Cura de Mente",
-    type: "potion",
-    description: "Restaura a sanidade mental do consumidor.",
+    description: "Restaura a sanidade mental.",
     effect: "Cura 3d6 PS.",
+    ingredients: ["1 Garrafa de Álcool Absoluto", "1 Pacote de Ervas", "1 Porção de Álisso Absoluto"]
   },
   {
-    id: "potion-fortalecimento",
+    id: "pocao-fortalecimento-resistencia",
     name: "Poção de Fortalecimento de Resistência",
-    type: "potion",
     description: "Concede resistência física temporária.",
     effect: "+2 Resistência Física por 3 rodadas.",
+    ingredients: ["1 Garrafa de Álcool Precário", "1 Porção de Cristais Precários", "1 Flor Morbidus Ordinária"]
   },
   {
-    id: "potion-explosiva",
+    id: "pocao-explosiva-area",
     name: "Poção Explosiva de Área",
-    type: "potion",
     description: "Explosivo líquido incendiário.",
     effect: "Causa 3d6 de dano de fogo em área curta.",
+    ingredients: ["1 Garrafa de Álcool Precário", "1 Pacote de Ervas", "1 Porção de Álisso Ordinário"]
   },
   {
-    id: "potion-feitico",
+    id: "pocao-feitico-instantaneo",
     name: "Poção de Feitiço Instantâneo",
-    type: "potion",
     description: "Simula o efeito de um feitiço de 1º círculo de duração instantânea.",
     effect: "Ativado em área curta.",
+    ingredients: ["1 Garrafa de Álcool Precário", "1 Porção de Rubrum Crystallum"]
   },
   {
-    id: "potion-cegueira",
+    id: "pocao-cegueira-area",
     name: "Poção de Cegueira em Área",
-    type: "potion",
     description: "Bomba líquida de luz intensa.",
     effect: "Todos na área curta ficam cegos por 3 rodadas.",
-  },
+    ingredients: ["1 Garrafa de Álcool Precário", "1 Mistura de Minérios Ordinária", "1 Flor Morbidus Ordinária"]
+  }
 ];
-
-// ════════════════════════════════════════════════════════════════════
-// FUNÇÕES AUXILIARES
-// ════════════════════════════════════════════════════════════════════
-
-export function getAllMagicItems(): MagicItem[] {
-  return [...amulets, ...ingredients, ...potions];
-}
-
-export function getMagicItemsByType(type: "amulet" | "ingredient" | "potion"): MagicItem[] {
-  const all = getAllMagicItems();
-  return all.filter((item) => item.type === type);
-}

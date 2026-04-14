@@ -1,17 +1,19 @@
 // src/pages/Home.tsx
 import { useEffect, useState } from "react";
 import { User } from "firebase/auth";
-import { Plus } from "lucide-react";
+import { Plus, Shield } from "lucide-react";
 import { listFichas, createFicha } from "../../services/fichasClient";
 import { toast } from "sonner";
-import { Header } from "../components/Header.tsx";
+import { Header } from "../components/Header";
 
 interface HomeProps {
   user: User;
   onSelectCharacter: (id: string) => void;
+  isMaster?: boolean;             // Nova prop
+  onGoToMasterPanel?: () => void; // Nova prop
 }
 
-export default function Home({ user, onSelectCharacter }: HomeProps) {
+export default function Home({ user, onSelectCharacter, isMaster, onGoToMasterPanel }: HomeProps) {
   const [fichas, setFichas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -66,11 +68,9 @@ export default function Home({ user, onSelectCharacter }: HomeProps) {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] px-4 py-6 text-white sm:px-6 relative z-0">
-      {/* Header com "Oitavo B" e logout */}
       <Header displayName={user.displayName || user.email || undefined} />
 
-      {/* Botão Nova Ficha */}
-      <div className="mx-auto max-w-4xl mt-8">
+      <div className="mx-auto max-w-4xl mt-8 flex flex-wrap items-center justify-between gap-4">
         <button
           onClick={handleCreateFicha}
           disabled={creating}
@@ -79,6 +79,16 @@ export default function Home({ user, onSelectCharacter }: HomeProps) {
           <Plus size={18} />
           {creating ? "Criando..." : "Nova Ficha"}
         </button>
+
+        {isMaster && onGoToMasterPanel && (
+          <button
+            onClick={onGoToMasterPanel}
+            className="inline-flex items-center gap-2 rounded-md border border-purple-500 bg-purple-500/10 px-5 py-3 text-sm font-bold text-purple-400 transition-all hover:bg-purple-500 hover:text-white"
+          >
+            <Shield size={18} />
+            Painel do Mestre
+          </button>
+        )}
       </div>
 
       {/* Lista de Fichas */}

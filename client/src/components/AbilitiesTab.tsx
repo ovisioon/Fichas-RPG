@@ -31,10 +31,9 @@ export function AbilitiesTab({
   themeColor = "#4ADE80" 
 }: AbilitiesTabProps) {
   const [showModal, setShowModal] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [selectedClass, setSelectedClass] = useState<"Combatente" | "Especialista" | "Ocultista" | null>(null);
   const [expandedTrails, setExpandedTrails] = useState<Record<string, boolean>>({});
 
-  // Garante que as variáveis sejam arrays antes de usar métodos como filter ou map
   const safeAbilities = Array.isArray(selectedAbilities) ? selectedAbilities : [];
   const safeTrailAbilities = Array.isArray(selectedTrailAbilities) ? selectedTrailAbilities : [];
 
@@ -77,6 +76,7 @@ export function AbilitiesTab({
   };
 
   const classTrails = selectedClass ? trails.filter(t => t.classId === selectedClass) : [];
+  const classAbilities = selectedClass ? ABILITIES.filter(a => a.classId === selectedClass) : [];
 
   return (
     <div style={{ padding: "10px" }}>
@@ -102,13 +102,11 @@ export function AbilitiesTab({
         </button>
       </div>
 
-      {/* Lista de Habilidades Selecionadas */}
       <div style={{ display: "grid", gap: "15px" }}>
         {safeAbilities.length === 0 && safeTrailAbilities.length === 0 && (
           <p style={{ color: "#666", textAlign: "center", padding: "20px" }}>Nenhuma habilidade selecionada</p>
         )}
 
-        {/* Habilidades Normais */}
         {safeAbilities.map(ability => (
           <div key={ability.customId} style={{ backgroundColor: "#1A1A1A", border: `1px solid ${themeColor}`, borderRadius: "8px", padding: "15px", position: "relative" }}>
             <button
@@ -118,11 +116,12 @@ export function AbilitiesTab({
               <Trash2 size={18} />
             </button>
             <h3 style={{ color: themeColor, fontSize: "1rem", marginBottom: "5px" }}>{ability.name}</h3>
+            {ability.prerequisite && <p style={{ color: "#FFD700", fontSize: "0.75rem", marginBottom: "5px" }}>Pré-requisito: {ability.prerequisite}</p>}
+            {ability.cost && <p style={{ color: "#A0A0A0", fontSize: "0.75rem", marginBottom: "5px" }}>Custo: {ability.cost}</p>}
             <p style={{ color: "#B0B0B0", fontSize: "0.85rem", lineHeight: "1.4" }}>{ability.description}</p>
           </div>
         ))}
 
-        {/* Habilidades de Trilha (Roxas) */}
         {safeTrailAbilities.map(ability => (
           <div key={ability.id} style={{ backgroundColor: "#1A1A1A", border: "1px solid #A855F7", borderRadius: "8px", padding: "15px", position: "relative" }}>
             <button
@@ -140,7 +139,6 @@ export function AbilitiesTab({
         ))}
       </div>
 
-      {/* Modal de Seleção */}
       {showModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" }}>
           <div style={{ backgroundColor: "#111", border: `2px solid ${themeColor}`, borderRadius: "12px", width: "100%", maxWidth: "600px", maxHeight: "80vh", overflowY: "auto", padding: "25px", position: "relative" }}>
@@ -151,7 +149,7 @@ export function AbilitiesTab({
             <h2 style={{ color: themeColor, marginBottom: "20px", fontSize: "1.2rem" }}>ADICIONAR HABILIDADE</h2>
             
             <div style={{ display: "flex", gap: "10px", marginBottom: "20px", overflowX: "auto", paddingBottom: "10px" }}>
-              {["Combatente", "Especialista", "Ocultista"].map(cls => (
+              {(["Combatente", "Especialista", "Ocultista"] as const).map(cls => (
                 <button
                   key={cls}
                   onClick={() => setSelectedClass(cls)}
@@ -173,33 +171,39 @@ export function AbilitiesTab({
             {selectedClass && (
               <div>
                 <h3 style={{ color: themeColor, fontSize: "0.9rem", marginBottom: "10px" }}>HABILIDADES DE CLASSE</h3>
-                <div style={{ display: "grid", gap: "10px", marginBottom: "20px" }}>
-                  {ABILITIES.filter(a => a.classId === selectedClass).map(ability => (
+                <div style={{ display: "grid", gap: "10px", marginBottom: "20px", maxHeight: "300px", overflowY: "auto" }}>
+                  {classAbilities.map(ability => (
                     <div key={ability.id} onClick={() => handleAddAbility(ability)} style={{ padding: "12px", backgroundColor: "#1A1A1A", border: "1px solid #333", borderRadius: "6px", cursor: "pointer" }}>
-                      <div style={{ color: themeColor, fontWeight: "bold", fontSize: "0.9rem" }}>{ability.name}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span style={{ color: themeColor, fontWeight: "bold", fontSize: "0.9rem" }}>{ability.name}</span>
+                        {ability.type === "passiva" && <span style={{ backgroundColor: "#333", color: "#AAA", fontSize: "0.6rem", padding: "2px 5px", borderRadius: "3px" }}>PASSIVA</span>}
+                      </div>
                       <div style={{ color: "#666", fontSize: "0.75rem", marginTop: "4px" }}>{ability.description.substring(0, 100)}...</div>
                     </div>
                   ))}
                 </div>
 
                 <h3 style={{ color: "#A855F7", fontSize: "0.9rem", marginTop: "20px", marginBottom: "10px" }}>TRILHAS</h3>
-                {classTrails.map(trail => (
-                  <div key={trail.id} style={{ marginBottom: "12px" }}>
-                    <div onClick={() => toggleTrailExpand(trail.id)} style={{ display: "flex", justifyContent: "space-between", padding: "10px", background: "rgba(168,85,247,0.1)", cursor: "pointer", color: "#A855F7", fontWeight: "bold", borderRadius: "4px" }}>
-                      {trail.name} <ChevronDown size={16} />
-                    </div>
-                    {expandedTrails[trail.id] && (
-                      <div style={{ padding: "10px", border: "1px solid rgba(168,85,247,0.2)", borderTop: "none", borderBottomLeftRadius: "4px", borderBottomRightRadius: "4px" }}>
-                        {trail.levels.map(level => (
-                          <div key={level.level} onClick={() => handleAddTrailAbility(trail, level)} style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)", cursor: "pointer" }}>
-                            <div style={{ fontSize: "0.85rem", color: "#D8B4FE", fontWeight: "bold" }}>Nível {level.level}: {level.name}</div>
-                            <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "4px" }}>{level.description.substring(0, 80)}...</div>
-                          </div>
-                        ))}
+                <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                  {classTrails.map(trail => (
+                    <div key={trail.id} style={{ marginBottom: "12px" }}>
+                      <div onClick={() => toggleTrailExpand(trail.id)} style={{ display: "flex", justifyContent: "space-between", padding: "10px", background: "rgba(168,85,247,0.1)", cursor: "pointer", color: "#A855F7", fontWeight: "bold", borderRadius: "4px" }}>
+                        {trail.name} <ChevronDown size={16} style={{ transform: expandedTrails[trail.id] ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {expandedTrails[trail.id] && (
+                        <div style={{ padding: "10px", border: "1px solid rgba(168,85,247,0.2)", borderTop: "none", borderBottomLeftRadius: "4px", borderBottomRightRadius: "4px" }}>
+                          <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "10px", fontStyle: "italic" }}>{trail.description}</p>
+                          {trail.levels.map(level => (
+                            <div key={level.level} onClick={() => handleAddTrailAbility(trail, level)} style={{ padding: "8px", borderBottom: "1px solid rgba(255,255,255,0.05)", cursor: "pointer" }}>
+                              <div style={{ fontSize: "0.85rem", color: "#D8B4FE", fontWeight: "bold" }}>Nível {level.level}: {level.name}</div>
+                              <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "4px" }}>{level.description.substring(0, 80)}...</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -207,4 +211,4 @@ export function AbilitiesTab({
       )}
     </div>
   );
-}
+} 
