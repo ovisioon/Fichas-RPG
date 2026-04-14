@@ -121,7 +121,7 @@ const ATTR_MAP: Record<string, keyof Attributes> = {
   carisma: "carisma",
 };
 
-// Lista oficial de perícias do sistema Ordem Paranormal
+// Lista oficial de perícias (com todos os nomes padronizados)
 const SKILLS_LIST: Omit<Skill, "trained" | "bonus">[] = [
   { name: "Acrobacia", attr: "Destreza" },
   { name: "Adestramento", attr: "Carisma" },
@@ -140,18 +140,44 @@ const SKILLS_LIST: Omit<Skill, "trained" | "bonus">[] = [
   { name: "Investigação", attr: "Intelecto" },
   { name: "Luta", attr: "Força" },
   { name: "Medicina", attr: "Intelecto" },
+  { name: "Misticismo", attr: "Intelecto" },
   { name: "Ocultismo", attr: "Intelecto" },
   { name: "Percepção", attr: "Carisma" },
   { name: "Pilotagem", attr: "Destreza" },
   { name: "Pontaria", attr: "Destreza" },
   { name: "Profissão", attr: "Intelecto" },
   { name: "Reflexos", attr: "Destreza" },
-  { name: "Religião", attr: "Carisma" },
+  { name: "Religião", attr: "Sabedoria" },
   { name: "Sobrevivência", attr: "Intelecto" },
   { name: "Tática", attr: "Intelecto" },
   { name: "Tecnologia", attr: "Intelecto" },
-  { name: "Vontade", attr: "Carisma" },
+  { name: "Vontade", attr: "Sabedoria" },
 ];
+
+// Perícias treinadas automaticamente por classe
+const classTrainedSkills: Record<string, string[]> = {
+  combatente: ["Luta", "Pontaria", "Fortitude"],
+  especialista: ["Pontaria", "Investigação"],
+  ocultista: ["Misticismo", "Ocultismo"],
+};
+
+// Cálculo de PV base por classe
+function calculateBasePV(classe: Classe, nivel: number, constituicao: number): number {
+  if (!classe) return 10 + nivel * 2;
+  const baseInitial: Record<string, number> = {
+    combatente: 20,
+    especialista: 16,
+    ocultista: 12,
+  };
+  const perLevel: Record<string, number> = {
+    combatente: 5,
+    especialista: 4,
+    ocultista: 3,
+  };
+  const initial = baseInitial[classe] || 10;
+  const perLvl = perLevel[classe] || 2;
+  return initial + (nivel - 1) * perLvl + constituicao * nivel;
+}
 
 // Mapeamento de classe para cores
 const classeBorderClass: Record<string, string> = {
@@ -260,6 +286,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
   const [characterImage, setCharacterImage] = useState<string | null>(null);
   const [elemento, setElemento] = useState<Elemento>(null);
   const [classe, setClasse] = useState<Classe>(null);
+  const [nivel, setNivel] = useState<number>(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -273,9 +300,9 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
     pvAtual: 20, pvMax: 20, peAtual: 20, peMax: 20, evAtual: 0,
   });
 
-  const [skills, setSkills] = useState<Skill[]>(
-    SKILLS_LIST.map((s) => ({ ...s, trained: false, bonus: 0 }))
-  );
+  // Inicializa com a lista padrão
+  const defaultSkills = SKILLS_LIST.map((s) => ({ ...s, trained: false, bonus: 0 }));
+  const [skills, setSkills] = useState<Skill[]>(defaultSkills);
 
   const [selectedAbilities, setSelectedAbilities] = useState<SelectedAbility[]>([]);
   const [selectedTrailAbilities, setSelectedTrailAbilities] = useState<SelectedTrailAbility[]>([]);
@@ -283,8 +310,6 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
   const [activeConditions, setActiveConditions] = useState<any[]>([]);
   const [selectedPacto, setSelectedPacto] = useState<SelectedPacto | null>(null);
   const [selectedArquetipo, setSelectedArquetipo] = useState<SelectedArquetipo | null>(null);
-
-  // Pontos de Investigação (PI)
   const [piAtual, setPiAtual] = useState<number>(0);
   const [piMax, setPiMax] = useState<number>(5);
 
@@ -300,11 +325,38 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
 
   const skillAttrValue = useMemo(
     () => (attrLabel: string) => {
+      if (!attrLabel) return 0;
       const key = ATTR_MAP[attrLabel.toLowerCase()] ?? "intelecto";
       return attributes[key] ?? 0;
     },
     [attributes]
   );
+
+  // Treinamento automático ao mudar de classe
+  useEffect(() => {
+    if (!classe) return;
+    const trainedList = classTrainedSkills[classe] || [];
+    setSkills(prev => prev.map(skill => {
+      if (trainedList.includes(skill.name)) {
+        return { ...skill, trained: true };
+      }
+      return skill;
+    }));
+  }, [classe]);
+
+  // PV máximo
+  useEffect(() => {
+    if (!classe) {
+      setStatus(prev => ({ ...prev, pvMax: 10 + nivel * 2 }));
+      return;
+    }
+    const newMax = calculateBasePV(classe, nivel, attributes.constituicao);
+    setStatus(prev => ({
+      ...prev,
+      pvMax: newMax,
+      pvAtual: Math.min(prev.pvAtual, newMax),
+    }));
+  }, [classe, nivel, attributes.constituicao]);
 
   // Buscar username
   useEffect(() => {
@@ -350,10 +402,16 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
         if (data.characterName) setCharacterName(data.characterName);
         if (data.attrs) setAttributes(data.attrs);
         if (data.status) setStatus(data.status);
-        if (data.skills) setSkills(data.skills);
+        // Se skills for um array com o comprimento correto, usa; senão mantém default
+        if (Array.isArray(data.skills) && data.skills.length === defaultSkills.length) {
+          setSkills(data.skills);
+        } else {
+          setSkills(defaultSkills);
+        }
         if (data.characterImage) setCharacterImage(data.characterImage);
         if (data.elemento) setElemento(data.elemento);
         if (data.classe) setClasse(data.classe);
+        if (data.nivel) setNivel(data.nivel);
         setSelectedAbilities(Array.isArray(data.selectedAbilities) ? data.selectedAbilities : []);
         setSelectedTrailAbilities(Array.isArray(data.selectedTrailAbilities) ? data.selectedTrailAbilities : []);
         setDefenseInventoryData(data.defenseInventory || null);
@@ -401,6 +459,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       characterImage,
       elemento,
       classe,
+      nivel,
       selectedAbilities,
       selectedTrailAbilities,
       defenseInventory: defenseInventoryData,
@@ -414,11 +473,9 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
     saveToFirestore(dataToSave);
   };
 
-  // Excluir ficha
   const handleDeleteFicha = async () => {
     if (!user) return;
     if (!window.confirm("Tem certeza que deseja excluir permanentemente esta ficha?")) return;
-
     setIsDeleting(true);
     try {
       await deleteFicha(characterId);
@@ -443,6 +500,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       characterImage,
       elemento,
       classe,
+      nivel,
       selectedAbilities,
       selectedTrailAbilities,
       defenseInventory: defenseInventoryData,
@@ -460,7 +518,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [characterName, attributes, status, skills, characterImage, elemento, classe, selectedAbilities, selectedTrailAbilities, defenseInventoryData, activeConditions, selectedPacto, selectedArquetipo, piAtual, piMax, characterId, user, isLoading, isMaster]);
+  }, [characterName, attributes, status, skills, characterImage, elemento, classe, nivel, selectedAbilities, selectedTrailAbilities, defenseInventoryData, activeConditions, selectedPacto, selectedArquetipo, piAtual, piMax, characterId, user, isLoading, isMaster]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -548,7 +606,6 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
                 <input type="text" value={characterName} onChange={(e) => setCharacterName(e.target.value)} className={`w-full rounded-lg border ${borderClass} bg-[#050505] px-3 py-3 text-base text-white outline-none placeholder:text-white/30 focus:ring-1 focus:ring-${classeKey} sm:text-lg`} />
               </div>
 
-              {/* Seletor de Classe com cor */}
               <div className="mt-4">
                 <label className="mb-2 block text-left text-[0.7rem] uppercase tracking-widest" style={{ color: themeColor }}>
                   Classe
@@ -578,7 +635,20 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
                 )}
               </div>
 
-              {/* Seletor de Elemento (sem cor) */}
+              <div className="mt-4">
+                <label className="mb-2 block text-left text-[0.7rem] uppercase tracking-widest" style={{ color: themeColor }}>
+                  Nível (1-20)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={nivel}
+                  onChange={(e) => setNivel(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className={`w-full rounded-lg border ${borderClass} bg-[#050505] px-3 py-3 text-base text-white outline-none sm:text-lg`}
+                />
+              </div>
+
               <div className="mt-4">
                 <label className="mb-2 block text-left text-[0.7rem] uppercase tracking-widest text-white/70">
                   Elemento
@@ -624,10 +694,20 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
               <h3 className="mb-4 border-b border-white/10 pb-2 text-sm font-bold tracking-widest sm:text-base" style={{ color: themeColor }}>
                 PERÍCIAS
               </h3>
-              <div className="max-h-[520px] overflow-y-auto pr-1 sm:pr-2">
-                {skills.map((skill, i) => (
-                  <SkillRow key={skill.name} skill={skill} attrValue={skillAttrValue(skill.attr)} onToggle={() => toggleSkill(i)} onBonusChange={(v) => updateSkillBonus(i, v)} />
-                ))}
+              <div className="max-h-[520px] overflow-y-auto pr-1 sm:pr-2" style={{ minHeight: "200px" }}>
+                {skills.length === 0 ? (
+                  <p className="text-white/50 text-center py-4">Nenhuma perícia encontrada.</p>
+                ) : (
+                  skills.map((skill, i) => (
+                    <SkillRow
+                      key={skill.name}
+                      skill={skill}
+                      attrValue={skillAttrValue(skill.attr)}
+                      onToggle={() => toggleSkill(i)}
+                      onBonusChange={(v) => updateSkillBonus(i, v)}
+                    />
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -658,7 +738,6 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
           />
         )}
 
-        {/* Botões de ação (Salvar e Excluir) */}
         <div className="mt-6 border-t border-white/10 pt-5">
           <div className="flex justify-center gap-4">
             <button
