@@ -38,6 +38,7 @@ interface StatusBars {
   peAtual: number;
   peMax: number;
   evAtual: number;
+  evMax: number; // fixo 5
 }
 
 interface Skill {
@@ -121,7 +122,7 @@ const ATTR_MAP: Record<string, keyof Attributes> = {
   carisma: "carisma",
 };
 
-// Lista oficial de perícias (com todos os nomes padronizados)
+// Lista oficial de perícias
 const SKILLS_LIST: Omit<Skill, "trained" | "bonus">[] = [
   { name: "Acrobacia", attr: "Destreza" },
   { name: "Adestramento", attr: "Carisma" },
@@ -161,22 +162,38 @@ const classTrainedSkills: Record<string, string[]> = {
   ocultista: ["Misticismo", "Ocultismo"],
 };
 
-// Cálculo de PV base por classe
+// Cálculo de PV base por classe (novas regras)
 function calculateBasePV(classe: Classe, nivel: number, constituicao: number): number {
   if (!classe) return 10 + nivel * 2;
   const baseInitial: Record<string, number> = {
-    combatente: 20,
+    combatente: 16,
     especialista: 16,
-    ocultista: 12,
+    ocultista: 13,
   };
   const perLevel: Record<string, number> = {
     combatente: 5,
     especialista: 4,
-    ocultista: 3,
+    ocultista: 4,
   };
-  const initial = baseInitial[classe] || 10;
-  const perLvl = perLevel[classe] || 2;
-  return initial + (nivel - 1) * perLvl + constituicao * nivel;
+  const initial = baseInitial[classe] + constituicao + Math.floor(nivel / 2);
+  const extra = (nivel - 1) * perLevel[classe];
+  return initial + extra;
+}
+
+// Cálculo de PE base por classe (novas regras)
+function calculateBasePE(classe: Classe, nivel: number): number {
+  if (!classe) return 10 + nivel * 2;
+  const baseInitial: Record<string, number> = {
+    combatente: 14,
+    especialista: 15,
+    ocultista: 15,
+  };
+  const perLevel: Record<string, number> = {
+    combatente: 3,
+    especialista: 3,
+    ocultista: 5,
+  };
+  return baseInitial[classe] + (nivel - 1) * perLevel[classe];
 }
 
 // Mapeamento de classe para cores
@@ -236,14 +253,14 @@ const StatusBar = ({ label, current, max, color, onChange }: { label: string; cu
   );
 };
 
-const VoidBar = ({ current, onChange }: { current: number; onChange: (val: number) => void }) => (
+const VoidBar = ({ current, onChange }: { current: number; max: number; onChange: (val: number) => void }) => (
   <div className="mb-4">
     <div className="mb-2 flex items-center justify-between gap-2">
       <span className="text-[0.78rem] font-bold tracking-wide text-purple-400">ESFORÇO DE VAZIO</span>
-      <input type="number" value={current} onChange={(e) => onChange(parseInt(e.target.value) || 0)} className="w-12 bg-transparent text-right text-sm text-white outline-none" />
+      <input type="number" value={current} onChange={(e) => onChange(Math.min(5, Math.max(0, parseInt(e.target.value) || 0)))} className="w-12 bg-transparent text-right text-sm text-white outline-none" />
     </div>
-    <div className="grid grid-cols-10 gap-1">
-      {Array.from({ length: 10 }).map((_, i) => (
+    <div className="grid grid-cols-5 gap-1">
+      {Array.from({ length: 5 }).map((_, i) => (
         <button key={i} type="button" onClick={() => onChange(i + 1)}
           className={`h-3 rounded-sm border transition-colors sm:h-3.5 ${i < current ? "border-purple-400 bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.35)]" : "border-purple-400/70 bg-black/70"}`}
           aria-label={`Esforço de vazio ${i + 1}`}
@@ -297,10 +314,12 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
   });
 
   const [status, setStatus] = useState<StatusBars>({
-    pvAtual: 20, pvMax: 20, peAtual: 20, peMax: 20, evAtual: 0,
+    pvAtual: 20, pvMax: 20,
+    peAtual: 20, peMax: 20,
+    evAtual: 0, evMax: 5,
   });
 
-  // Inicializa com a lista padrão
+  // Perícias
   const defaultSkills = SKILLS_LIST.map((s) => ({ ...s, trained: false, bonus: 0 }));
   const [skills, setSkills] = useState<Skill[]>(defaultSkills);
 
@@ -312,6 +331,10 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
   const [selectedArquetipo, setSelectedArquetipo] = useState<SelectedArquetipo | null>(null);
   const [piAtual, setPiAtual] = useState<number>(0);
   const [piMax, setPiMax] = useState<number>(5);
+
+  // Limite de carga (espaços ocupados)
+  const [usedSpaces, setUsedSpaces] = useState<number>(0);
+  const maxSpaces = 15;
 
   const attributeGridClass = "grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5 place-items-center";
 
@@ -344,17 +367,25 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
     }));
   }, [classe]);
 
-  // PV máximo
+  // Recalcular PV e PE ao mudar classe, nível ou atributos
   useEffect(() => {
     if (!classe) {
-      setStatus(prev => ({ ...prev, pvMax: 10 + nivel * 2 }));
+      setStatus(prev => ({
+        ...prev,
+        pvMax: 10 + nivel * 2,
+        peMax: 10 + nivel * 2,
+      }));
       return;
     }
-    const newMax = calculateBasePV(classe, nivel, attributes.constituicao);
+    const newPV = calculateBasePV(classe, nivel, attributes.constituicao);
+    const newPE = calculateBasePE(classe, nivel);
     setStatus(prev => ({
       ...prev,
-      pvMax: newMax,
-      pvAtual: Math.min(prev.pvAtual, newMax),
+      pvMax: newPV,
+      pvAtual: Math.min(prev.pvAtual, newPV),
+      peMax: newPE,
+      peAtual: Math.min(prev.peAtual, newPE),
+      evMax: 5,
     }));
   }, [classe, nivel, attributes.constituicao]);
 
@@ -401,8 +432,16 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
         const data = ficha.data || {};
         if (data.characterName) setCharacterName(data.characterName);
         if (data.attrs) setAttributes(data.attrs);
-        if (data.status) setStatus(data.status);
-        // Se skills for um array com o comprimento correto, usa; senão mantém default
+        if (data.status) {
+          setStatus({
+            pvAtual: data.status.pvAtual ?? 20,
+            pvMax: data.status.pvMax ?? 20,
+            peAtual: data.status.peAtual ?? 20,
+            peMax: data.status.peMax ?? 20,
+            evAtual: data.status.evAtual ?? 0,
+            evMax: 5,
+          });
+        }
         if (Array.isArray(data.skills) && data.skills.length === defaultSkills.length) {
           setSkills(data.skills);
         } else {
@@ -468,6 +507,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       selectedArquetipo,
       piAtual,
       piMax,
+      usedSpaces,
       lastSaved: new Date().toISOString(),
     };
     saveToFirestore(dataToSave);
@@ -509,6 +549,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       selectedArquetipo,
       piAtual,
       piMax,
+      usedSpaces,
       lastSaved: new Date().toISOString(),
     };
     const timer = setTimeout(() => {
@@ -518,7 +559,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [characterName, attributes, status, skills, characterImage, elemento, classe, nivel, selectedAbilities, selectedTrailAbilities, defenseInventoryData, activeConditions, selectedPacto, selectedArquetipo, piAtual, piMax, characterId, user, isLoading, isMaster]);
+  }, [characterName, attributes, status, skills, characterImage, elemento, classe, nivel, selectedAbilities, selectedTrailAbilities, defenseInventoryData, activeConditions, selectedPacto, selectedArquetipo, piAtual, piMax, usedSpaces, characterId, user, isLoading, isMaster]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -542,6 +583,15 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
     }
   };
 
+  // Cálculo das defesas para passar ao DefenseInventoryTab
+  const protectionBonus = defenseInventoryData?.protections?.reduce((sum: number, p: any) => sum + (p.defense || 0), 0) || 0;
+  const shieldBonus = defenseInventoryData?.protections?.some((p: any) => p.id === "escudo") ? 2 : 0;
+  const totalProtection = protectionBonus + shieldBonus;
+
+  const passiveDefense = 10 + attributes.destreza + totalProtection;
+  const dodgeDefense = 10 + attributes.destreza + (defenseInventoryData?.reflexBonus || 0) + totalProtection;
+  const blockDefense = 10 + attributes.forca + totalProtection;
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0A0A0A] text-white">
@@ -563,6 +613,17 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
           <button onClick={handleLogout} className="inline-flex items-center gap-1 rounded-md border border-red-400/70 px-2 py-1.5 sm:px-3 text-xs text-red-400 hover:bg-red-400/10 whitespace-nowrap">
             <LogOut size={14} /> Sair
           </button>
+        </div>
+      </div>
+
+      {/* Barra de limite de carga */}
+      <div className="mx-auto mb-3 w-full max-w-[1200px]">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-white/70">Limite de Carga</span>
+          <span className="text-white font-bold">{usedSpaces} / {maxSpaces}</span>
+        </div>
+        <div className="h-2 w-full rounded-full bg-white/10">
+          <div className="h-full rounded-full bg-yellow-500" style={{ width: `${Math.min((usedSpaces / maxSpaces) * 100, 100)}%` }} />
         </div>
       </div>
 
@@ -688,7 +749,7 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
               </h3>
               <StatusBar label="PONTOS DE VIDA" current={status.pvAtual} max={status.pvMax} color="#EF4444" onChange={(v, isMax) => updateStatus(isMax ? "pvMax" : "pvAtual", v)} />
               <StatusBar label="PONTOS DE ESFORÇO" current={status.peAtual} max={status.peMax} color="#3B82F6" onChange={(v, isMax) => updateStatus(isMax ? "peMax" : "peAtual", v)} />
-              <VoidBar current={status.evAtual} onChange={(v) => updateStatus("evAtual", v)} />
+              <VoidBar current={status.evAtual} max={5} onChange={(v) => updateStatus("evAtual", v)} />
             </div>
             <div>
               <h3 className="mb-4 border-b border-white/10 pb-2 text-sm font-bold tracking-widest sm:text-base" style={{ color: themeColor }}>
@@ -717,7 +778,27 @@ export default function CharacterSheet({ characterId, onBackToSelect }: Characte
           <AbilitiesTab selectedAbilities={selectedAbilities} onAbilitiesChange={setSelectedAbilities} selectedTrailAbilities={selectedTrailAbilities} onTrailAbilitiesChange={setSelectedTrailAbilities} />
         )}
         {activeTab === "defesa" && (
-          <DefenseInventoryTab characterData={{ attributes: attributes as unknown as Record<string, number> }} initialData={defenseInventoryData} onUpdate={setDefenseInventoryData} />
+          <DefenseInventoryTab
+            characterData={{ attributes: attributes as unknown as Record<string, number> }}
+            initialData={defenseInventoryData}
+            onUpdate={(data) => {
+              setDefenseInventoryData(data);
+              // Atualizar espaços usados
+              const totalSpaces = (data.weapons || []).reduce((sum: number, w: any) => sum + (w.spaces || 0), 0) +
+                (data.ammunitions || []).reduce((sum: number, a: any) => sum + (a.spaces || 0) * (a.quantity || 1), 0) +
+                (data.protections || []).reduce((sum: number, p: any) => sum + (p.spaces || 0), 0) +
+                (data.operationals || []).reduce((sum: number, o: any) => sum + (o.spaces || 0), 0) +
+                (data.paranormals || []).reduce((sum: number, p: any) => sum + (p.spaces || 0), 0) +
+                (data.explosives || []).reduce((sum: number, e: any) => sum + (e.spaces || 0) * (e.quantity || 1), 0) +
+                (data.accessories || []).reduce((sum: number, a: any) => sum + (a.spaces || 0), 0) +
+                (data.magicItems || []).reduce((sum: number, m: any) => sum + (m.spaces || 0) * (m.quantity || 1), 0);
+              setUsedSpaces(totalSpaces);
+            }}
+            passiveDefense={passiveDefense}
+            dodgeDefense={dodgeDefense}
+            blockDefense={blockDefense}
+            themeColor={themeColor}
+          />
         )}
         {activeTab === "rituais" && <RitualsTab themeColor={themeColor} />}
         {activeTab === "magias" && <MagicsTab themeColor={themeColor} />}
