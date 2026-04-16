@@ -38,7 +38,7 @@ interface StatusBars {
   peAtual: number;
   peMax: number;
   evAtual: number;
-  evMax: number; // fixo 5
+  evMax: number;
 }
 
 interface Skill {
@@ -79,6 +79,16 @@ interface SelectedArquetipo {
   name: string;
   description: string;
   habilidades: HabilidadeInvestigativa[];
+}
+
+interface SavedRitual {
+  id: string;
+  element: string;
+  circle: number;
+  name: string;
+  content: string;
+  isCustom?: boolean;
+  originalRitualId?: string;
 }
 
 interface CharacterSheetProps {
@@ -123,7 +133,6 @@ const ATTR_MAP: Record<string, keyof Attributes> = {
   carisma: "carisma",
 };
 
-// Lista oficial de perícias
 const SKILLS_LIST: Omit<Skill, "trained" | "bonus">[] = [
   { name: "Acrobacia", attr: "Destreza" },
   { name: "Adestramento", attr: "Carisma" },
@@ -156,14 +165,12 @@ const SKILLS_LIST: Omit<Skill, "trained" | "bonus">[] = [
   { name: "Vontade", attr: "Sabedoria" },
 ];
 
-// Perícias treinadas automaticamente por classe
 const classTrainedSkills: Record<string, string[]> = {
   combatente: ["Luta", "Pontaria", "Fortitude"],
   especialista: ["Pontaria", "Investigação"],
   ocultista: ["Misticismo", "Ocultismo"],
 };
 
-// Cálculo de PV base por classe (novas regras)
 function calculateBasePV(classe: Classe, nivel: number, constituicao: number): number {
   if (!classe) return 10 + nivel * 2;
   const baseInitial: Record<string, number> = {
@@ -181,7 +188,6 @@ function calculateBasePV(classe: Classe, nivel: number, constituicao: number): n
   return initial + extra;
 }
 
-// Cálculo de PE base por classe (novas regras)
 function calculateBasePE(classe: Classe, nivel: number): number {
   if (!classe) return 10 + nivel * 2;
   const baseInitial: Record<string, number> = {
@@ -197,7 +203,6 @@ function calculateBasePE(classe: Classe, nivel: number): number {
   return baseInitial[classe] + (nivel - 1) * perLevel[classe];
 }
 
-// Mapeamento de classe para cores
 const classeBorderClass: Record<string, string> = {
   combatente: "border-red-500",
   especialista: "border-blue-500",
@@ -293,7 +298,7 @@ const SkillRow = ({ skill, attrValue, onToggle, onBonusChange }: { skill: Skill;
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function CharacterSheet({ characterId, onBackToSelect, user }: CharacterSheetProps) {
+export default function CharacterSheet({ characterId, user, onBackToSelect }: CharacterSheetProps) {
   const MASTER_UID = import.meta.env.VITE_MASTER_UID;
   const isMaster = user?.uid === MASTER_UID;
 
@@ -319,7 +324,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
     evAtual: 0, evMax: 5,
   });
 
-  // Perícias
   const defaultSkills = SKILLS_LIST.map((s) => ({ ...s, trained: false, bonus: 0 }));
   const [skills, setSkills] = useState<Skill[]>(defaultSkills);
 
@@ -331,8 +335,8 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
   const [selectedArquetipo, setSelectedArquetipo] = useState<SelectedArquetipo | null>(null);
   const [piAtual, setPiAtual] = useState<number>(0);
   const [piMax, setPiMax] = useState<number>(5);
+  const [rituals, setRituals] = useState<SavedRitual[]>([]);
 
-  // Limite de carga (espaços ocupados)
   const [usedSpaces, setUsedSpaces] = useState<number>(0);
   const maxSpaces = 15;
 
@@ -355,26 +359,18 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
     [attributes]
   );
 
-  // Treinamento automático ao mudar de classe
   useEffect(() => {
     if (!classe) return;
     const trainedList = classTrainedSkills[classe] || [];
     setSkills(prev => prev.map(skill => {
-      if (trainedList.includes(skill.name)) {
-        return { ...skill, trained: true };
-      }
+      if (trainedList.includes(skill.name)) return { ...skill, trained: true };
       return skill;
     }));
   }, [classe]);
 
-  // Recalcular PV e PE ao mudar classe, nível ou atributos
   useEffect(() => {
     if (!classe) {
-      setStatus(prev => ({
-        ...prev,
-        pvMax: 10 + nivel * 2,
-        peMax: 10 + nivel * 2,
-      }));
+      setStatus(prev => ({ ...prev, pvMax: 10 + nivel * 2, peMax: 10 + nivel * 2 }));
       return;
     }
     const newPV = calculateBasePV(classe, nivel, attributes.constituicao);
@@ -389,7 +385,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
     }));
   }, [classe, nivel, attributes.constituicao]);
 
-  // Buscar username
   useEffect(() => {
     if (!user) return;
     const fetchUsername = async () => {
@@ -404,7 +399,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
     fetchUsername();
   }, [user]);
 
-  // Carregar ficha
   useEffect(() => {
     if (!user) {
       toast.error("Usuário não autenticado");
@@ -459,6 +453,7 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
         if (data.selectedArquetipo) setSelectedArquetipo(data.selectedArquetipo);
         if (data.piAtual !== undefined) setPiAtual(data.piAtual);
         if (data.piMax !== undefined) setPiMax(data.piMax);
+        if (Array.isArray(data.rituals)) setRituals(data.rituals);
       } catch (error) {
         console.error("Erro ao carregar ficha:", error);
         toast.error("Erro ao carregar dados da ficha");
@@ -469,7 +464,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
     loadCharacter();
   }, [characterId, user, onBackToSelect, isMaster]);
 
-  // Salvar no Firestore
   const saveToFirestore = async (data: any) => {
     if (!user) return;
     setIsSaving(true);
@@ -508,6 +502,7 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
       piAtual,
       piMax,
       usedSpaces,
+      rituals,
       lastSaved: new Date().toISOString(),
     };
     saveToFirestore(dataToSave);
@@ -529,7 +524,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
     }
   };
 
-  // Auto-save
   useEffect(() => {
     if (isLoading) return;
     const dataToSave = {
@@ -550,6 +544,7 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
       piAtual,
       piMax,
       usedSpaces,
+      rituals,
       lastSaved: new Date().toISOString(),
     };
     const timer = setTimeout(() => {
@@ -559,7 +554,7 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [characterName, attributes, status, skills, characterImage, elemento, classe, nivel, selectedAbilities, selectedTrailAbilities, defenseInventoryData, activeConditions, selectedPacto, selectedArquetipo, piAtual, piMax, usedSpaces, characterId, user, isLoading, isMaster]);
+  }, [characterName, attributes, status, skills, characterImage, elemento, classe, nivel, selectedAbilities, selectedTrailAbilities, defenseInventoryData, activeConditions, selectedPacto, selectedArquetipo, piAtual, piMax, usedSpaces, rituals, characterId, user, isLoading, isMaster]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -583,7 +578,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
     }
   };
 
-  // Cálculo das defesas para passar ao DefenseInventoryTab
   const protectionBonus = defenseInventoryData?.protections?.reduce((sum: number, p: any) => sum + (p.defense || 0), 0) || 0;
   const shieldBonus = defenseInventoryData?.protections?.some((p: any) => p.id === "escudo") ? 2 : 0;
   const totalProtection = protectionBonus + shieldBonus;
@@ -602,7 +596,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#0A0A0A] px-2 py-3 text-white sm:px-4 sm:py-5 relative z-0">
-      {/* Header */}
       <div className={`mx-auto mb-3 flex w-full max-w-[1200px] flex-col gap-3 border-b ${borderClass} pb-3 sm:flex-row sm:items-center sm:justify-between`}>
         <button onClick={onBackToSelect} className={`inline-flex items-center justify-center gap-2 self-start rounded-md border ${borderClass} px-3 py-2 text-xs font-bold ${textClass} transition-transform active:scale-[0.98] sm:text-sm whitespace-nowrap`}>
           <ArrowLeft size={16} /> Voltar
@@ -616,7 +609,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
         </div>
       </div>
 
-      {/* Barra de limite de carga */}
       <div className="mx-auto mb-3 w-full max-w-[1200px]">
         <div className="flex items-center justify-between text-xs">
           <span className="text-white/70">Limite de Carga</span>
@@ -627,7 +619,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="mx-auto mb-3 w-full max-w-[1200px] overflow-x-auto pb-1">
         <div className="flex w-max gap-2 sm:w-full sm:flex-nowrap">
           {(Object.keys(TAB_LABELS) as ActiveTab[]).map((tab) => {
@@ -641,7 +632,6 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
         </div>
       </div>
 
-      {/* Content */}
       <div className={panelClass}>
         {activeTab === "personagem" && (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-8">
@@ -783,15 +773,14 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
             initialData={defenseInventoryData}
             onUpdate={(data) => {
               setDefenseInventoryData(data);
-              // Atualizar espaços usados
-              const totalSpaces = (data.weapons || []).reduce((sum: number, w: any) => sum + (w.spaces || 0), 0) +
+              const totalSpaces = (data.weapons || []).reduce((sum: number, w: any) => sum + (w.spaces || 0) * (w.quantity || 1), 0) +
                 (data.ammunitions || []).reduce((sum: number, a: any) => sum + (a.spaces || 0) * (a.quantity || 1), 0) +
                 (data.protections || []).reduce((sum: number, p: any) => sum + (p.spaces || 0), 0) +
-                (data.operationals || []).reduce((sum: number, o: any) => sum + (o.spaces || 0), 0) +
-                (data.paranormals || []).reduce((sum: number, p: any) => sum + (p.spaces || 0), 0) +
+                (data.operationals || []).reduce((sum: number, o: any) => sum + (o.spaces || 0) * (o.quantity || 1), 0) +
+                (data.paranormals || []).reduce((sum: number, p: any) => sum + (p.spaces || 0) * (p.quantity || 1), 0) +
                 (data.explosives || []).reduce((sum: number, e: any) => sum + (e.spaces || 0) * (e.quantity || 1), 0) +
-                (data.accessories || []).reduce((sum: number, a: any) => sum + (a.spaces || 0), 0) +
-                (data.magicItems || []).reduce((sum: number, m: any) => sum + (m.spaces || 0) * (m.quantity || 1), 0);
+                (data.accessories || []).reduce((sum: number, a: any) => sum + (a.spaces || 0) * (a.quantity || 1), 0) +
+                (data.magicItems || []).reduce((sum: number, m: any) => sum + ((m.spaces || 0) * (m.quantity || 1)), 0);
               setUsedSpaces(totalSpaces);
             }}
             passiveDefense={passiveDefense}
@@ -800,7 +789,13 @@ export default function CharacterSheet({ characterId, onBackToSelect, user }: Ch
             themeColor={themeColor}
           />
         )}
-        {activeTab === "rituais" && <RitualsTab themeColor={themeColor} />}
+        {activeTab === "rituais" && (
+          <RitualsTab
+            themeColor={themeColor}
+            savedRituals={rituals}
+            onRitualsChange={setRituals}
+          />
+        )}
         {activeTab === "magias" && <MagicsTab themeColor={themeColor} />}
         {activeTab === "condições" && (
           <ConditionsTab activeConditions={activeConditions} onConditionsChange={setActiveConditions} />
