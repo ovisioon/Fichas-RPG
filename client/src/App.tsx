@@ -39,12 +39,15 @@ function AuthenticatedRouter({ user }: { user: User }) {
         )}
       </Route>
 
-      {/* Rota do painel do mestre */}
-      {isMaster && (
-        <Route path="/mestre">
-          <MasterPanel onBack={() => setLocation("/")} />
-        </Route>
-      )}
+      <Route path="/mestre">
+        {() => {
+          if (!user || user.uid !== MASTER_UID) {
+            setLocation("/");
+            return null;
+          }
+          return <MasterPanel onBack={() => setLocation("/")} />;
+        }}
+      </Route>
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
