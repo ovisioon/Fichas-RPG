@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { auth, db } from "../firebase";
 import { signOut, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { listFichas, updateFicha, getFicha, deleteFicha } from "../../services/fichasClient";
+import { listFichas, updateFicha, deleteFicha, listAllFichas } from "../../services/fichasClient";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -399,6 +399,7 @@ export default function CharacterSheet({ characterId, user, onBackToSelect }: Ch
     fetchUsername();
   }, [user]);
 
+  // Carregar ficha (mestre usa listAllFichas)
   useEffect(() => {
     if (!user) {
       toast.error("Usuário não autenticado");
@@ -411,14 +412,21 @@ export default function CharacterSheet({ characterId, user, onBackToSelect }: Ch
         setIsLoading(true);
         let ficha;
         if (isMaster) {
-          ficha = await getFicha(characterId);
+          const todas = await listAllFichas();
+          ficha = todas.find((f: any) => f.id === characterId);
         } else {
           const fichas = await listFichas(user.uid);
           ficha = fichas.find((f: any) => f.id === characterId) as any;
         }
 
         if (!ficha) {
-          toast.error("Ficha não encontrada");
+          toast.error("Ficha não encontrada ou acesso negado");
+          onBackToSelect();
+          return;
+        }
+
+        if (!isMaster && ficha.userId !== user.uid) {
+          toast.error("Você não tem permissão para acessar esta ficha");
           onBackToSelect();
           return;
         }
@@ -470,7 +478,8 @@ export default function CharacterSheet({ characterId, user, onBackToSelect }: Ch
     try {
       let targetUserId = user.uid;
       if (isMaster) {
-        const fichaOriginal = await getFicha(characterId) as any;
+        const todas = await listAllFichas();
+        const fichaOriginal = todas.find((f: any) => f.id === characterId) as any; // ← CORRIGIDO
         targetUserId = fichaOriginal?.userId || user.uid;
       }
       await updateFicha(targetUserId, characterId, data);
