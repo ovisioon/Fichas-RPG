@@ -35,7 +35,7 @@ export function Header({ displayName, onBack, showBack = false }: HeaderProps) {
 
       {/* Logo "Oitavo B" com efeito glitch */}
       <h1 className="glitch-text text-center" data-text="VICTOR E MAC SÃO CORNES">
-        OITAVO B
+        VICTOR E MAC SÃO CORNES
       </h1>
 
       {/* Área do usuário/logout */}
