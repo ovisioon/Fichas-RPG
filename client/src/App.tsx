@@ -20,10 +20,6 @@ function AuthenticatedRouter({ user }: { user: User }) {
   const [, setLocation] = useLocation();
   const isMaster = MASTER_UID && user.uid === MASTER_UID;
 
-  console.log("VITE_MASTER_UID:", MASTER_UID);
-  console.log("user.uid:", user.uid);
-  console.log("isMaster:", isMaster);
-
   return (
     <Switch>
       <Route path="/">
