@@ -14,16 +14,15 @@ import CharacterSheet from "./components/CharacterSheet";
 import MasterPanel from "./pages/MasterPanel";
 
 // UID do mestre (deve ser definido no .env)
-const MASTER_UID = import.meta.env.VITE_MASTER_UID;
+const MASTER_UID = import.meta.env.VITE_MASTER_UID?.trim();
 
 function AuthenticatedRouter({ user }: { user: User }) {
   const [, setLocation] = useLocation();
   const isMaster = MASTER_UID && user.uid === MASTER_UID;
 
-  // Logs para diagnóstico (podem ser removidos após confirmar funcionamento)
-  console.log("VITE_MASTER_UID:", import.meta.env.VITE_MASTER_UID);
+  console.log("VITE_MASTER_UID:", MASTER_UID);
   console.log("user.uid:", user.uid);
-  console.log("isMaster:", user.uid === import.meta.env.VITE_MASTER_UID);
+  console.log("isMaster:", isMaster);
 
   return (
     <Switch>
