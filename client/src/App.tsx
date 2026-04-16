@@ -20,6 +20,11 @@ function AuthenticatedRouter({ user }: { user: User }) {
   const [, setLocation] = useLocation();
   const isMaster = MASTER_UID && user.uid === MASTER_UID;
 
+  // Logs para diagnóstico (podem ser removidos após confirmar funcionamento)
+  console.log("VITE_MASTER_UID:", import.meta.env.VITE_MASTER_UID);
+  console.log("user.uid:", user.uid);
+  console.log("isMaster:", user.uid === import.meta.env.VITE_MASTER_UID);
+
   return (
     <Switch>
       <Route path="/">
