@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 // Firebase
 import { auth, db } from "../firebase";
-import { signOut } from "firebase/auth";
+import { signOut, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { listFichas, updateFicha, getFicha, deleteFicha } from "../../services/fichasClient";
 
@@ -83,6 +83,7 @@ interface SelectedArquetipo {
 
 interface CharacterSheetProps {
   characterId: string;
+  user: User;
   onBackToSelect: () => void;
 }
 
@@ -292,8 +293,7 @@ const SkillRow = ({ skill, attrValue, onToggle, onBonusChange }: { skill: Skill;
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function CharacterSheet({ characterId, onBackToSelect }: CharacterSheetProps) {
-  const user = auth.currentUser;
+export default function CharacterSheet({ characterId, onBackToSelect, user }: CharacterSheetProps) {
   const MASTER_UID = import.meta.env.VITE_MASTER_UID;
   const isMaster = user?.uid === MASTER_UID;
 

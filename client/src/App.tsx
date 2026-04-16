@@ -30,24 +30,23 @@ function AuthenticatedRouter({ user }: { user: User }) {
           onGoToMasterPanel={() => setLocation("/mestre")}
         />
       </Route>
+
       <Route path="/sheet/:characterId">
         {(params) => (
           <CharacterSheet
             characterId={params.characterId}
+            user={user}
             onBackToSelect={() => setLocation("/")}
           />
         )}
       </Route>
 
-      <Route path="/mestre">
-        {() => {
-          if (!user || user.uid !== MASTER_UID) {
-            setLocation("/");
-            return null;
-          }
-          return <MasterPanel onBack={() => setLocation("/")} />;
-        }}
-      </Route>
+      {/* Rota do mestre: só registrada se for mestre */}
+      {isMaster && (
+        <Route path="/mestre">
+          <MasterPanel onBack={() => setLocation("/")} />
+        </Route>
+      )}
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
