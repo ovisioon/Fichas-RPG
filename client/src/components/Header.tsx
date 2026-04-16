@@ -34,7 +34,7 @@ export function Header({ displayName, onBack, showBack = false }: HeaderProps) {
       {!showBack && <div className="hidden w-[84px] sm:block" />}
 
       {/* Logo "Oitavo B" com efeito glitch */}
-      <h1 className="glitch-text text-center" data-text="OITAVO B">
+      <h1 className="glitch-text text-center" data-text="VICTOR E MAC SÃO CORNES">
         OITAVO B
       </h1>
 
